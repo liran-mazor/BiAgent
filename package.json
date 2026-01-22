@@ -1,0 +1,35 @@
+{
+  "name": "agentiq",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed": "tsx src/database/seed.ts",
+    "start": "tsx src/index.ts",
+    "interactive": "tsx src/interactive.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@faker-js/faker": "^10.2.0",
+    "@tavily/core": "^0.7.1",
+    "axios": "^1.13.2",
+    "chartjs-node-canvas": "^5.0.0",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "dotenv": "^17.2.3",
+    "nodemailer": "^7.0.12",
+    "openai": "^6.16.0",
+    "pg": "^8.17.1",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.9",
+    "@types/nodemailer": "^7.0.5",
+    "@types/pg": "^8.16.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
