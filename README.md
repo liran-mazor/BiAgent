@@ -6,6 +6,8 @@ An AI agent that autonomously answers business questions by selecting and using 
 
 AgentIQ connects to your e-commerce database and autonomously decides which tools to use to answer complex business questions. It can query databases, search the web for benchmarks, generate charts, and send email reports - all from a single natural language query.
 
+The agent understands team roles - simply mention "team leader", "CTO", or "VP" and it automatically resolves to the correct email address.
+
 ## Tech Stack
 
 - **LLM**: Claude Sonnet 4 (Anthropic API)
