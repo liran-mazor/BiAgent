@@ -14,45 +14,72 @@ AgentIQ connects to your e-commerce database and autonomously decides which tool
 - **Language**: TypeScript + Node.js
 - **Tools**: SQL queries, Chart generation, Web search, Email
 
-## Quick Setup
+---
 
-1. **Clone and install:**
+## Example Workflows
+
+### 1. Email Tool
 ```bash
-git clone <your-repo-url>
-cd agentIQ
-npm install
+npm start "Remind the team leader to bring milk for tomorrow's meeting"
 ```
 
-2. **Setup environment variables** (`.env`):
-```env
-ANTHROPIC_API_KEY=your_key_here
-TAVILY_API_KEY=your_key_here
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
-```
+![Email Output](docs/EXP_email-tool.png)
 
-3. **Start PostgreSQL:**
+---
+
+### 2. Web Search + Email
 ```bash
-docker-compose up -d
+npm start "Find the cheapest flights from Paris to Miami in April and send to team leader"
 ```
 
-4. **Seed database:**
+![Web Search Email](docs/EXP_web-tool+%20email-tool.png)
+
+---
+
+### 3. All Tools: SQL + Web Search + Chart + Email
 ```bash
-npm run seed
+npm start "Compare our average order value to the German e-commerce industry benchmark, create a comparison chart, and email it to the team leader with happy holidays message"
 ```
 
-5. **Run a query:**
+**Agent autonomously:**
+1. Queries database for our AOV
+2. Searches web for German industry benchmark
+3. Generates comparison chart
+4. Emails results with chart attached
+
+![Chart Generated](docs/EXP_chart-tool.png)
+![Complete Workflow](docs/EXP_all-tools.png)
+
+---
+
+## With Agent vs Without Agent
+
+**Without AgentIQ** (Manual Process):
+1. Open database client
+2. Ask ChatGPT to write SQL query for AOV
+3. Copy/paste query, run it → Result: $3,262
+4. Open browser, search "Germany ecommerce AOV 2024"
+5. Read articles, extract benchmark: €120
+6. Open spreadsheet tool to create comparison chart
+7. Export chart as PNG
+8. Open Gmail, compose email
+9. Attach chart, write message, send
+
+⏱️ **Time: ~15-20 minutes**  
+📋 **Steps: 9 manual actions**  
+🔄 **Context switching: 5+ different tools**
+
+---
+
+**With AgentIQ** (Autonomous):
 ```bash
-npm start "How many customers do we have?"
+npm start "Compare our AOV to Germany industry, create chart, email to team leader"
 ```
 
-## Example Usage
-```bash
-npm start "Show me the top 5 products by revenue as a bar chart"
-```
+⏱️ **Time: ~30 seconds**  
+📋 **Steps: 1 command**  
+🔄 **Context switching: 0**
 
-The agent will autonomously:
-1. Query the database for product revenue
-2. Generate a professional chart
-3. Return insights with visualization
+The agent autonomously executes all 9 steps in a single command.
 
+---

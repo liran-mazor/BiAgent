@@ -6,14 +6,14 @@ export interface TeamMember {
 
 export const teamMembers: Record<string, TeamMember> = {
   team_leader: {
-    name: 'Liran Mazor',
-    email: 'lirand95@gmail.com',
-    role: 'Team Leader',
-  },
-  vp: {
     name: 'Tal Adel',
     email: 'talf18@gmail.com',
-    role: 'VP',
+    role: 'team_leader',
+  },
+  vp: {
+    name: 'Liran Mazor',
+    email: 'lirand95@gmail.com',
+    role: 'vp',
   },
   cto: {
     name: 'Roy Ben-Hayun',
