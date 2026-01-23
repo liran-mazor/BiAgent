@@ -23,11 +23,11 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
 ## System Architecture
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         User Interfaces                          │
-├──────────────────┬──────────────────┬──────────────────────────┤
-│   CLI Terminal   │  Telegram Bot    │   REST API (Future)      │
-│                  │  (Voice/Text)    │                          │
-└────────┬─────────┴────────┬─────────┴──────────────────────────┘
+│                         User Interfaces                         │
+├──────────────────┬──────────────────┬───────────────────────────┤
+│   CLI Terminal   │  Telegram Bot    │   REST API (Future)       │
+│                  │  (Voice/Text)    │                           │
+└────────┬─────────┴────────┬─────────┴───────────────────────────┘
          │                  │
          │  Text Query      │  Voice Message
          │                  │
