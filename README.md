@@ -1,5 +1,7 @@
 # AgentIQ - Autonomous Business Intelligence Agent
 
+> **⚠️ Demo Project**: This is a technical demonstration project built to showcase agentic AI engineering capabilities. It is not intended for production use.
+
 An AI agent that autonomously answers business questions by selecting and using multiple tools through a ReAct (Reasoning + Acting) control pattern.
 
 ## What It Does
