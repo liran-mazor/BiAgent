@@ -22,37 +22,37 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
 
 ## System Architecture
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         User Interfaces                         │
-├──────────────────┬──────────────────┬───────────────────────────┤
-│   CLI Terminal   │  Telegram Bot    │   REST API (Future)       │
-│                  │  (Voice/Text)    │                           │
-└────────┬─────────┴────────┬─────────┴───────────────────────────┘
-         │                  │
-         │  Text Query      │  Voice Message
-         │                  │
-         └──────────────────┼────► Whisper API (Audio→Text)
-                            │
-                            ▼
-         ┌──────────────────────────────────────┐
-         │         AgentIQ Core Agent           │
-         │     (ReAct Control Pattern)          │
-         │   Claude Sonnet 4 Reasoning Engine   │
-         └─────────────┬────────────────────────┘
-                       │
-         ┌─────────────┼─────────────┐
-         │             │             │
-         ▼             ▼             ▼
-    ┌────────┐   ┌─────────┐   ┌──────────┐   ┌────────────┐
-    │  SQL   │   │  Web    │   │  Chart   │   │   Email    │
-    │  Tool  │   │ Search  │   │   Tool   │   │    Tool    │
-    └───┬────┘   └────┬────┘   └────┬─────┘   └─────┬──────┘
-        │             │              │               │
-        ▼             ▼              ▼               ▼
-    ┌────────┐   ┌─────────┐   ┌──────────┐   ┌────────────┐
-    │PostGreSQL  │ Tavily  │   │ Chart.js │   │   SMTP     │
-    │ Database│  │   API   │   │  Canvas  │   │  (Gmail)   │
-    └────────┘   └─────────┘   └──────────┘   └────────────┘
+                  ┌─────────────────────────────────────┐
+                  │            User Interfaces          │
+                  ├──────────────────┬──────────────────┤
+                  │   CLI Terminal   │  Telegram Bot    │ 
+                  │                  │  (Voice/Text)    │                    
+                  └──────────┬───────┴────────┬─────────┘
+                             │                │
+                         Text Query       Voice Message ────► Whisper API 
+                             │                │               (Audio→Text)
+                             │                │         
+                             │                │
+                             ▼                ▼
+                  ┌──────────────────────────────────────┐
+                  │         AgentIQ Core Agent           │
+                  │     (ReAct Control Pattern)          │
+                  │   Claude Sonnet 4 Reasoning Engine   │
+                  └──────────────────┬───────────────────┘
+                                     │
+               ┌─────────────┬───────┼─────┬───────────────┐
+               │             │             │               │
+               ▼             ▼             ▼               ▼
+           ┌────────┐   ┌─────────┐   ┌──────────┐   ┌────────────┐
+           │  SQL   │   │  Web    │   │  Chart   │   │   Email    │
+           │  Tool  │   │ Search  │   │   Tool   │   │    Tool    │
+           └───┬────┘   └────┬────┘   └────┬─────┘   └─────┬──────┘
+               │             │             │               │
+               ▼             ▼             ▼               ▼
+           ┌────────┐   ┌─────────┐   ┌──────────┐   ┌────────────┐
+           │PostGres│   │ Tavily  │   │ Chart.js │   │   SMTP     │
+           │Database│   │   API   │   │  Canvas  │   │  (Gmail)   │
+           └────────┘   └─────────┘   └──────────┘   └────────────┘
 ```
 
 **Flow Example:**
