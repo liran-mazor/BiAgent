@@ -10,7 +10,7 @@ export class AgentIQ {
     this.client = new Anthropic({ apiKey });
   }
 
-  async run(question: string): Promise<string> {
+  public async run(question: string): Promise<string> {
     console.log(`\n🤔 Question: ${question}\n`);
 
     const messages: Anthropic.MessageParam[] = [
