@@ -4,3 +4,5 @@ charts/
 dist/
 *.log
 .DS_Store
+PROJECT_STATE.md
+temp/

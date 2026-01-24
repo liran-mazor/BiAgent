@@ -16,7 +16,7 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
 - **Control Pattern**: ReAct (Reasoning + Acting loop)
 - **Database**: PostgreSQL (Docker)
 - **Language**: TypeScript + Node.js
-- **Tools**: SQL queries, Chart generation, Web search, Email
+- **Tools**: SQL queries, Chart generation, Web search, Email, Calculator, monitoring
 
 ---
 
@@ -29,7 +29,7 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
                   │                  │  (Voice/Text)    │                    
                   └──────────┬───────┴────────┬─────────┘
                              │                │
-                         Text Query       Voice Message ────► Whisper API 
+                         Text Query       Voice Message ────► OpenAI Whisper 
                              │                │               (Audio→Text)
                              │                │         
                              │                │
@@ -40,19 +40,17 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
                   │   Claude Sonnet 4 Reasoning Engine   │
                   └──────────────────┬───────────────────┘
                                      │
-               ┌─────────────┬───────┼─────┬───────────────┐
-               │             │             │               │
-               ▼             ▼             ▼               ▼
-           ┌────────┐   ┌─────────┐   ┌──────────┐   ┌───────────┐
-           │  SQL   │   │  Web    │   │  Chart   │   │   Email   │
-           │  Tool  │   │ Search  │   │   Tool   │   │    Tool   │
-           └───┬────┘   └────┬────┘   └────┬─────┘   └─────┬─────┘
-               │             │             │               │
-               ▼             ▼             ▼               ▼
-          ┌──────────┐   ┌─────────┐   ┌──────────┐   ┌───────────┐
-          │ PostGres │   │ Tavily  │   │ Chart.js │   │   SMTP    │
-          │ Database │   │   API   │   │  Canvas  │   │  (Gmail)  │
-          └──────────┘   └─────────┘   └──────────┘   └───────────┘
+         ┌───────────┬──────────┬────┼────┬──────────┬───────────┐
+         │           │          │         │          │           │
+         ▼           ▼          ▼         ▼          ▼           ▼
+     ┌────────┐ ┌─────────┐ ┌──────┐ ┌───────┐ ┌──────────┐ ┌────────────┐
+     │  SQL   │ │   Web   │ │Chart │ │ Email │ │Calculator│ │ Monitoring │
+     │  Tool  │ │ Search  │ │ Tool │ │ Tool  │ │   Tool   │ │    Tool    │
+     └───┬────┘ └────┬────┘ └───┬──┘ └───┬───┘ └─────┬────┘ └──────┬─────┘
+         │           │          │        │           │             │
+         ▼           ▼          ▼        ▼           ▼             ▼
+        PG         Tavily    Chart.js   SMTP      Math.js       cAdvisor
+
 ```
 
 **Flow Example:**

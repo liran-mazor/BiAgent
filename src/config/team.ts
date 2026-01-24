@@ -6,20 +6,20 @@ export interface TeamMember {
 
 export const teamMembers: Record<string, TeamMember> = {
   team_leader: {
-    name: 'Tal Adel',
-    email: 'talf18@gmail.com',
+    name: 'Liran Mazor',
+    email: 'lirand95@gmail.com',
     role: 'team_leader',
   },
   vp: {
-    name: 'Liran Mazor',
-    email: 'lirand95@gmail.com',
+    name: 'Tal Adel',
+    email: 'talf18@gmail.com',
     role: 'vp',
   },
-  cto: {
-    name: 'Roy Ben-Hayun',
-    email: 'royb@infinitylabs.co.il',
-    role: 'CTO',
-  },
+  // cto: {
+  //   name: 'Roy Ben-Hayun',
+  //   email: 'royb@infinitylabs.co.il',
+  //   role: 'CTO',
+  // },
 };
 
 // Helper function to resolve recipient (role or email)

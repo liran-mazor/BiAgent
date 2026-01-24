@@ -5,8 +5,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "tsx src/database/seed.ts",
+    "seed:daily": "tsx src/database/daily-seed.ts",
     "start": "tsx src/index.ts",
-    "interactive": "tsx src/interactive.ts"
+    "interactive": "tsx src/interactive.ts",
+    "bot": "tsx src/bot/telegram-bot.ts"
   },
   "keywords": [],
   "author": "",
@@ -20,13 +22,17 @@
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
     "dotenv": "^17.2.3",
+    "mathjs": "^15.1.0",
+    "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^7.0.12",
     "openai": "^6.16.0",
     "pg": "^8.17.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@types/mathjs": "^9.4.1",
     "@types/node": "^25.0.9",
+    "@types/node-telegram-bot-api": "^0.64.13",
     "@types/nodemailer": "^7.0.5",
     "@types/pg": "^8.16.0",
     "tsx": "^4.21.0",
