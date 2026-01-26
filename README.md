@@ -108,21 +108,19 @@ Agent:
 ---
 
 ## With Agent vs Without Agent
-
+  *"Compare our AOV to Germany industry, create chart, email to team leader"*
 **Without AgentIQ** (Manual Process):
 1. Open database client
 2. Ask ChatGPT to write SQL query for AOV
-3. Copy/paste query, run it → Result: $3,262
+3. Copy/paste query, run it → Result
 4. Open browser, search "Germany ecommerce AOV 2024"
-5. Read articles, extract benchmark: €120
+5. Read articles, extract benchmark
 6. Open spreadsheet tool to create comparison chart
 7. Export chart as PNG
 8. Open Gmail, compose email
 9. Attach chart, write message, send
 
 ⏱️ **Time: ~15-20 minutes**  
-📋 **Steps: 9 manual actions**  
-🔄 **Context switching: 5+ different tools**
 
 ---
 
@@ -130,10 +128,7 @@ Agent:
 ```bash
 npm start "Compare our AOV to Germany industry, create chart, email to team leader"
 ```
-
 ⏱️ **Time: ~30 seconds**  
-📋 **Steps: 1 command**  
-🔄 **Context switching: 0**
 
 The agent autonomously executes all 9 steps in a single command.
 
