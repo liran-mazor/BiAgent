@@ -85,9 +85,9 @@ Agent: [Generates chart, uploads to S3, returns URL]
 ## Example Workflows
 
 ### 1. Complete Autonomous Workflow
-\`\`\`bash
+```bash
 npm start "Compare our AOV to German e-commerce industry, create chart, email to team leader"
-\`\`\`
+```
 
 **Agent autonomously executes:**
 1. SQL query for our AOV → $3,262
