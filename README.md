@@ -61,26 +61,6 @@ An AI agent that autonomously answers business questions by selecting and using 
 
 ```
 
-## Demo: Conversation Memory in Action
-
-```bash
-npm run interactive
-```
-You: "What was our revenue last month?"
-Agent: "$156,000"
-
-You: "And the month before?"   ← No context in question!
-Agent: "$135,000 - that's 15.5% growth"
-
-You: "Show me a chart comparing them"
-Agent: [Generates chart, uploads to S3, returns URL]
-
-**Agent remembers:**
-- We're discussing revenue
-- Time periods referenced
-- Maintains conversation flow
-
-
 ## Example Workflows
 
 ### 1. Complete Autonomous Workflow
