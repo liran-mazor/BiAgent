@@ -69,7 +69,7 @@ npm run interactive
 You: "What was our revenue last month?"
 Agent: "$156,000"
 
-You: "And the month before?"  # ← No context in question!
+You: "And the month before?"   ← No context in question!
 Agent: "$135,000 - that's 15.5% growth"
 
 You: "Show me a chart comparing them"
