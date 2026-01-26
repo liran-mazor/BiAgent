@@ -4,6 +4,7 @@ import { join } from 'path';
 import { Tool, ToolResult } from './types';
 import { z } from 'zod';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import { uploadChartToS3 } from '../utils/s3Upload';
 
 export const ChartToolParams = z.object({
   type: z.enum(['bar', 'line', 'pie']).describe('Chart type'),
@@ -264,14 +265,18 @@ export const chartTool: Tool = {
       
       writeFileSync(filepath, imageBuffer);
       
+      // Upload to S3
+      const chartUrl = await uploadChartToS3(filepath);
+
       return {
         success: true,
         data: {
           type: validated.type,
           filepath,
           filename,
+          chartUrl,
           dataPoints: validated.data.length,
-          message: `Modern chart with gradients and data labels saved as ${filename}`
+          message: `Chart uploaded to S3: ${chartUrl}`
         },
       };
     } catch (error) {

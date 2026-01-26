@@ -5,17 +5,17 @@ import { SYSTEM_PROMPT, createUserPrompt } from './prompts';
 export class AgentIQ {
   private client: Anthropic;
   private maxIterations = 10;
-
+  private conversationHistories: Map<string,Anthropic.MessageParam[]> = new Map();
+  
   constructor(apiKey: string) {
     this.client = new Anthropic({ apiKey });
   }
 
-  public async run(question: string): Promise<string> {
+  public async run(question: string, sessionId: string): Promise<string> {
     console.log(`\n🤔 Question: ${question}\n`);
 
-    const messages: Anthropic.MessageParam[] = [
-      { role: 'user', content: createUserPrompt(question) }
-    ];
+    let messages = this.conversationHistories.get(sessionId) || [];
+    messages.push({ role: 'user', content: createUserPrompt(question) });
 
     let iteration = 0;
 
@@ -44,6 +44,11 @@ export class AgentIQ {
         const textBlock = response.content.find(
           (block): block is Anthropic.TextBlock => block.type === 'text'
         );
+        
+        messages.push({ role: 'assistant', content: response.content });
+        
+        this.conversationHistories.set(sessionId, messages);
+        
         return textBlock?.text || 'No response generated';
       }
 

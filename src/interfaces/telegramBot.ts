@@ -4,7 +4,7 @@ import path from 'node:path';
 import OpenAI from 'openai';
 import TelegramBot from 'node-telegram-bot-api';
 import { AgentIQ } from '../agent/agent';
-import { downloadFile, initializeTempDirectory, getLatestChart } from './utils';
+import { downloadFile, initializeTempDirectory, getLatestChart } from '../utils/fileSystem';
 
 initializeTempDirectory();
 
@@ -19,11 +19,11 @@ bot.on('text', async (msg) => {
   try {
     await bot.sendChatAction(chatId, 'typing');
 
-    const answer = await agent.run(question);
+    const answer = await agent.run(question, chatId.toString());
     
-    const latestChart = await getLatestChart();
-    if (latestChart) {
-      await bot.sendPhoto(chatId, latestChart);
+    const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
+    if (chartUrlMatch) {
+      await bot.sendPhoto(chatId, chartUrlMatch[1]);
     }
     
     await bot.sendMessage(chatId, answer);
@@ -56,11 +56,11 @@ bot.on('voice', async (msg) => {
     await bot.sendMessage(chatId, `🎤 I heard: "${transcription.text}"\n\nProcessing...`);
     
     await bot.sendChatAction(chatId, 'typing');
-    const answer = await agent.run(transcription.text);
+    const answer = await agent.run(transcription.text, chatId.toString());
     
-    const latestChart = await getLatestChart();
-    if (latestChart) {
-      await bot.sendPhoto(chatId, latestChart);
+    const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
+    if (chartUrlMatch) {
+      await bot.sendPhoto(chatId, chartUrlMatch[1]);
     }
     
     await bot.sendMessage(chatId, answer);

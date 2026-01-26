@@ -1,10 +1,10 @@
 import { Tool } from './types';
-import { sqlTool } from './sql-tool';
-import { chartTool } from './chart-tool';
-import { emailTool } from './email-tool';
-import { webSearchTool } from './web-search-tool';  
-import { calculatorTool } from './calculator-tool';
-import { monitoringTool } from './monitoring-tool';
+import { sqlTool } from './sqlTool';
+import { chartTool } from './chartTool';
+import { emailTool } from './emailTool';
+import { webSearchTool } from './webSearchTool';  
+import { calculatorTool } from './calculatorTool';
+import { monitoringTool } from './monitoringTool';
 
 export const tools: Tool[] = [sqlTool, chartTool, emailTool, webSearchTool, calculatorTool, monitoringTool];
 

@@ -1,24 +1,28 @@
 # AgentIQ - Autonomous Business Intelligence Agent
 
-> **⚠️ Demo Project**: This is a technical demonstration project built to showcase agentic AI engineering capabilities. It is not intended for production use.
+> **⚠️ Demo Project**: Technical demonstration showcasing agentic AI engineering capabilities for interviews.
 
 An AI agent that autonomously answers business questions by selecting and using multiple tools through a ReAct (Reasoning + Acting) control pattern.
 
-## What It Does
+## Key Features
 
-AgentIQ connects to your e-commerce database and autonomously decides which tools to use to answer complex business questions. It can query databases, search the web for benchmarks, generate charts, and send email reports - all from a single natural language query.
-
-The agent understands team roles - simply mention "team leader", "CTO", or "VP" and it automatically resolves to the correct email address.
+- **🧠 Conversation Memory**: Maintains context across questions ("What was our revenue?" → "And last month?")
+- **☁️ Cloud Storage**: Charts automatically uploaded to AWS S3 with shareable URLs
+- **🎤 Voice Interface**: Telegram bot with OpenAI Whisper transcription
+- **🤖 Autonomous Tool Selection**: Agent chains SQL → Web Search → Charts → Email in single query
+- **👥 Team Role Resolution**: Mention "team leader" or "VP" - automatically resolves to correct email
 
 ## Tech Stack
 
 - **LLM**: Claude Sonnet 4 (Anthropic API)
-- **Control Pattern**: ReAct (Reasoning + Acting loop)
+- **Control Pattern**: ReAct (Reasoning + Acting) - raw implementation, no frameworks
 - **Database**: PostgreSQL (Docker)
+- **Cloud**: AWS S3 for chart storage
 - **Language**: TypeScript + Node.js
-- **Tools**: SQL queries, Chart generation, Web search, Email, Calculator, monitoring
+- **6 Tools**: SQL, Chart (Chart.js), Web Search (Tavily), Email, Calculator (Math.js), Monitoring (cAdvisor)
 
 ---
+
 
 ## System Architecture
 ```
@@ -34,11 +38,12 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
                              │                │         
                              │                │
                              ▼                ▼
-                  ┌──────────────────────────────────────┐
-                  │         AgentIQ Core Agent           │
-                  │     (ReAct Control Pattern)          │
-                  │   Claude Sonnet 4 Reasoning Engine   │
-                  └──────────────────┬───────────────────┘
+                 ┌──────────────────────────────────────┐
+                 │         AgentIQ Core Agent           │
+                 │       (ReAct Control Pattern)        │
+                 │   Conversation Memory (Per Session)  │
+                 │      Claude Sonnet 4 Reasoning       │
+                 └───────────────────┬──────────────────┘
                                      │
          ┌───────────┬───────────┬───┼─────┬───────────┬──────────────┐
          │           │           │         │           │              │
@@ -54,49 +59,50 @@ The agent understands team roles - simply mention "team leader", "CTO", or "VP" 
      └────────┘  └────────┘  └────────┘  └──────┘  └─────────┘  └──────────┘
 ```
 
-**Flow Example:**
-1. User sends voice message via Telegram: *"Compare our AOV to Germany"*
-2. Whisper transcribes audio to text
-3. AgentIQ processes query through ReAct loop:
-   - Iteration 1: SQL Tool → Query database (AOV: $3,262)
-   - Iteration 2: Web Search Tool → Find benchmark (€120)
-   - Iteration 3: Chart Tool → Generate comparison chart
-   - Iteration 4: Email Tool → Send to team leader
-4. Bot replies with results + chart image
+## Demo: Conversation Memory in Action
+
+\`\`\`bash
+npm run interactive
+
+You: "What was our revenue last month?"
+Agent: "$156,000"
+
+You: "And the month before?"  # ← No context in question!
+Agent: "$135,000 - that's 15.5% growth"
+
+You: "Show me a chart comparing them"
+Agent: [Generates chart, uploads to S3, returns URL]
+\`\`\`
+
+**Agent remembers:**
+- We're discussing revenue
+- Time periods referenced
+- Maintains conversation flow
+
 
 ## Example Workflows
 
-### 1. Email Tool
-```bash
-npm start "Remind the team leader to bring milk for tomorrow's meeting"
-```
+### 1. Complete Autonomous Workflow
+\`\`\`bash
+npm start "Compare our AOV to German e-commerce industry, create chart, email to team leader"
+\`\`\`
 
-![Email Output](docs/EXP_email-tool.png)
+**Agent autonomously executes:**
+1. SQL query for our AOV → $3,262
+2. Web search for German benchmark → €120
+3. Chart generation with gradients
+4. Upload to AWS S3 → \`https://s3.amazonaws.com/...\`
+5. Email with chart URL to team leader
 
----
+⏱️ **Time: 30 seconds** vs 15-20 minutes manual work
 
-### 2. Web Search + Email
-```bash
-npm start "Find the cheapest flights from Paris to Miami in April and send to team leader"
-```
+### 2. Voice + Telegram
+Send voice message: *"Check database container health and email team leader if CPU is high"*
 
-![Web Search Email](docs/EXP_web-tool+%20email-tool.png)
-
----
-
-### 3. All Tools: SQL + Web Search + Chart + Email
-```bash
-npm start "Compare our average order value to the German e-commerce industry benchmark, create a comparison chart, and email it to the team leader with happy holidays message"
-```
-
-**Agent autonomously:**
-1. Queries database for our AOV
-2. Searches web for German industry benchmark
-3. Generates comparison chart
-4. Emails results with chart attached
-
-![Chart Generated](docs/EXP_chart-tool.png)
-![Complete Workflow](docs/EXP_all-tools.png)
+Agent:
+- Transcribes via Whisper
+- Checks cAdvisor metrics
+- Conditionally sends alert email
 
 ---
 
@@ -129,5 +135,15 @@ npm start "Compare our AOV to Germany industry, create chart, email to team lead
 🔄 **Context switching: 0**
 
 The agent autonomously executes all 9 steps in a single command.
+
+---
+
+## Future Enhancements (Interview Discussion Points)
+
+- **Redis** for distributed conversation memory
+- **LangGraph** for complex multi-agent workflows
+- **Streaming responses** for real-time UX
+- **Semantic caching** with vector DB (pgvector)
+- **Human-in-the-loop** checkpoints for critical actions
 
 ---

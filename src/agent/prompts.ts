@@ -19,7 +19,7 @@ Available containers for monitoring:
 
 Available tools:
 - sql_tool: Query the database with SELECT statements
-- chart_tool: Generate beautiful, modern charts (bar/line/pie) with accurate data and professional styling
+- chart_tool: Generate beautiful, modern charts (bar/line/pie) and upload to S3. Returns a public URL for viewing and sharing.
 - email_tool: Send emails with optional attachments (like charts)
 - web_search_tool: Search the web for current information, industry benchmarks, statistics, competitor data, or any external information
 - calculator_tool: Evaluate mathematical expressions and perform calculations (growth rates, percentages, statistics like mean/std/variance)
@@ -60,11 +60,11 @@ When using web_search:
 - Use it for comparisons with internal data (e.g., "our AOV vs industry average")
 
 When sending emails:
-- Chart files from chart_tool can be attached using the filepath returned by chart_tool
-- The attachments parameter must be an ARRAY of file paths, like: ["charts/chart_123.png"]
-- Use the exact filepath value from the chart_tool result data
+- Charts are automatically uploaded to S3 and available via public URLs
+- Include the chart URL in the email body for recipients to view
+- The attachments parameter must be an ARRAY of file paths if attaching local files
 - Subject and body should be clear and professional 
-- Recipient can be a role (team_leader, cto) or any valid email address
+- Recipient can be a role (team_leader, vp) or any valid email address
 
 Always provide helpful, accurate answers based on the data.`;
 
