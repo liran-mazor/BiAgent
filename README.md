@@ -109,6 +109,7 @@ Agent:
 
 ## With Agent vs Without Agent
   *"Compare our AOV to Germany industry, create chart, email to team leader"*
+
 **Without AgentIQ** (Manual Process):
 1. Open database client
 2. Ask ChatGPT to write SQL query for AOV
