@@ -75,8 +75,6 @@ npm start "Compare our AOV to German e-commerce industry, create chart, email to
 4. Upload to AWS S3 → \`https://s3.amazonaws.com/...\`
 5. Email with chart URL to team leader
 
-⏱️ **Time: 30 seconds** vs 15-20 minutes manual work
-
 ### 2. Voice + Telegram
 Send voice message: *"Check database container health and email team leader if CPU is high"*
 
