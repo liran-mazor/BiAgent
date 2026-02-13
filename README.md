@@ -30,27 +30,27 @@ An AI agent that autonomously answers business questions by intelligently select
 
 ## System Architecture
 ```
-┌──────────────────────────────────────────────────────┐
-│                   User Interfaces                    │
-├─────────────────┬────────────┬───────────────────────┤
-│  CLI Terminal   │      Telegram Bot (Voice/Text)     │
-└──────┬──────────┴─────────────────┬──────────────────┘
-       │                            │
-   Text Query                    Voice ──► OpenAI Whisper
-       │                            │
+┌───────────────────────────────────────────────┐
+│               User Interfaces                 │
+├─────────────────┬─────────────────────────────┤
+│  CLI Terminal   │  Telegram Bot (Voice/Text)  │
+└─────┬───────────┴───────────────────┬─────────┘
+      │                               │
+   Text Query                   Voice ──► OpenAI Whisper
+      │                               │
+      └────────────────┬──────────────┘
+                       ▼
+       ┌────────────────────────────┐
+       │    Router (Haiku 3.5)      │  
+       │  Analyzes query complexity │
        └──────────────┬─────────────┘
-                      ▼
-         ┌────────────────────────────┐
-         │    Router (Haiku 3.5)      │  
-         │  Analyzes query complexity │
-         └────────────┬───────────────┘
                       │
              ┌────────┴─────────┐
              ▼                  ▼
-    ┌───────────────┐   ┌──────────────┐
-    │  Haiku 3.5    │   │  Sonnet 4    │
-    │   (Simple)    │   │  (Complex)   │
-    └────────┬──────┘   └──────┬───────┘
+       ┌──────────────┐   ┌─────────────┐
+       │  Haiku 3.5   │   │  Sonnet 4   │
+       │   (Simple)   │   │  (Complex)  │
+       └────────┬─────┘   └──────┬──────┘
              │                 │
              └────────┬────────┘
                       ▼
@@ -62,20 +62,20 @@ An AI agent that autonomously answers business questions by intelligently select
          │  Parallel Tool Execution   │
          └────────────┬───────────────┘
                       │
-          ┌─────────────────────────┐
-          │                         │
-          ▼                         ▼                 
-     ┌──────────┐          ┌──────────────┐ 
-     │ MCP Tool │          │ Native Tools │ 
-     └─────┬────┘          └─────┬────────┘ 
-           │                     │             
-           ▼                     ▼             
-   ┌───────────────┐     ┌─────────────────┐
-   │   MCP Server  │     │ Chart.js + S3   │
-   │query_database │     │ Web Search      │
-   │               │     │ Email           │
-   │ PG + pgvector │     │ Calculator      │
-   └───────────────┘     └─────────────────┘
+            ┌─────────┴───────────┐
+            │                     │
+            ▼                     ▼                 
+      ┌──────────┐         ┌──────────────┐ 
+      │ MCP Tool │         │ Native Tools │ 
+      └─────┬────┘         └─────┬────────┘ 
+            │                    │             
+            ▼                    ▼             
+    ┌───────────────┐     ┌────────────────┐
+    │   MCP Server  │     │ Chart.js + S3  │
+    │query_database │     │ Web Search     │
+    │               │     │ Email          │
+    │ PG + pgvector │     │ Calculator     │
+    └───────────────┘     └────────────────┘
 
 ```
 
