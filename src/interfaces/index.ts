@@ -1,26 +1,42 @@
-import { config } from 'dotenv';
-import { AgentIQ } from '../agent/agent';
-
-config();
+import { Agent } from '../agent/agent';
+import { mcpServers } from '../config/mcpServers';
+import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
 
 async function main() {
-  const agent = new AgentIQ(process.env.ANTHROPIC_API_KEY!);
-  
-  // Test question
-  const question = process.argv[2] || "What are the top 5 products by revenue? Show me a bar chart.";
-  
-  const answer = await agent.run(question, `cli_${Date.now()}`);
-  
-  const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
-  if (chartUrlMatch) {
-    console.log(`\n📊 Chart available at: ${chartUrlMatch[1]}\n`);
+  const question = process.argv.slice(2).join(' ');
+
+  if (!question) {
+    console.error('Usage: npm start "your question here"');
+    process.exit(1);
   }
 
-  console.log('\n' + '='.repeat(50));
-  console.log('📊 FINAL ANSWER:');
-  console.log('='.repeat(50));
-  console.log(answer);
-  console.log('='.repeat(50) + '\n');
+  try {
+    // Initialize MCP clients outside agent
+    const { clients, tools, clientMap } = await initializeMCPClients(mcpServers);
+
+    // Inject into agent
+    const agent = new Agent(
+      process.env.ANTHROPIC_API_KEY!,
+      tools,
+      clientMap
+    );
+
+    const sessionId = `cli_${Date.now()}`;
+    const answer = await agent.run(question, sessionId);
+
+    console.log('\n' + '='.repeat(80));
+    console.log('📊 Final Answer:');
+    console.log('='.repeat(80));
+    console.log(answer);
+    console.log('='.repeat(80) + '\n');
+
+    // Cleanup outside agent
+    await cleanupMCPClients(clients);
+    process.exit(0);
+  } catch (error) {
+    console.error('Error:', error);
+    process.exit(1);
+  }
 }
 
 main().catch(console.error);

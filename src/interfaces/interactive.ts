@@ -1,59 +1,54 @@
-import { config } from 'dotenv';
-import { AgentIQ } from '../agent/agent';
-import * as readline from 'readline';
+import readline from 'readline';
+import { Agent } from '../agent/agent';
+import { mcpServers } from '../config/mcpServers';
+import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
 
-config();
-
-async function main() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  
-  if (!apiKey) {
-    console.error('❌ ANTHROPIC_API_KEY not found in .env file');
-    process.exit(1);
-  }
-
-  const agent = new AgentIQ(apiKey);
-  const sessionId = `cli_${Date.now()}`; 
-  
-  const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-  });
-
-  console.log('🤖 AgentIQ Interactive Mode');
+export async function runInteractive() {
+  console.log('\n🤖 AgentIQ Interactive Mode');
   console.log('Type your questions (or "exit" to quit)\n');
 
-  const askQuestion = () => {
-  rl.question('You: ', async (question) => {
-    if (question.toLowerCase() === 'exit') {
-      console.log('Goodbye!');
-      rl.close();
-      process.exit(0);
-    }
+  // Initialize MCP clients
+  const { clients, tools, clientMap } = await initializeMCPClients(mcpServers);
 
-    try {
-      const answer = await agent.run(question, sessionId);
-      
-      const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
-      if (chartUrlMatch) {
-        console.log('\n📊 Chart available at: ' + chartUrlMatch[1] + '\n');
+  // Inject into agent
+  const agent = new Agent(
+    process.env.ANTHROPIC_API_KEY!,
+    tools,
+    clientMap
+  );
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const sessionId = `interactive_${Date.now()}`;
+
+  const askQuestion = () => {
+    rl.question('You: ', async (question) => {
+      if (question.toLowerCase() === 'exit') {
+        console.log('\nGoodbye! 👋\n');
+        await cleanupMCPClients(clients);
+        rl.close();
+        process.exit(0);
+        return;
       }
 
-      
-      console.log('\n' + '='.repeat(50));
-      console.log('📊 AgentIQ:');
-      console.log('='.repeat(50));
-      console.log(answer);
-      console.log('='.repeat(50) + '\n');
-    } catch (error) {
-      console.error('❌ Error:', error);
-    }
+      if (!question.trim()) {
+        askQuestion();
+        return;
+      }
 
-    askQuestion();
-  });
-};
+      try {
+        const answer = await agent.run(question, sessionId, 20);
+        console.log(`\nAgentIQ: ${answer}\n`);
+      } catch (error: any) {
+        console.error(`\n❌ Error: ${error.message}\n`);
+      }
+
+      askQuestion();
+    });
+  };
 
   askQuestion();
 }
-
-main();

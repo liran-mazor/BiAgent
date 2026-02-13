@@ -4,7 +4,7 @@ import { join } from 'path';
 import { Tool, ToolResult } from './types';
 import { z } from 'zod';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
-import { uploadChartToS3 } from '../utils/s3Upload';
+import { uploadChartToS3 } from '../services/s3Service';
 
 export const ChartToolParams = z.object({
   type: z.enum(['bar', 'line', 'pie']).describe('Chart type'),

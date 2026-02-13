@@ -1,14 +1,6 @@
 import 'dotenv/config';
-import { Pool } from 'pg';
+import { pool } from '../database/pool';
 import { faker } from '@faker-js/faker';
-
-const pool = new Pool({
-  host: 'localhost',
-  port: 5432,
-  database: 'agentiq',
-  user: 'agentiq',
-  password: 'agentiq123',
-});
 
 async function generateDailyData() {
   const client = await pool.connect();

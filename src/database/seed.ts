@@ -1,15 +1,5 @@
 import { faker } from '@faker-js/faker';
-import pg from 'pg';
-
-const { Pool } = pg;
-
-const pool = new Pool({
-  host: 'localhost',
-  port: 5432,
-  user: 'agentiq',
-  password: 'agentiq123',
-  database: 'agentiq',
-});
+import { pool } from '../database/pool';
 
 async function seed() {
   const client = await pool.connect();
