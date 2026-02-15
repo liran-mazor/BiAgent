@@ -51,9 +51,6 @@ export async function cacheResponse(query: string, response: string): Promise<vo
        VALUES ($1, $2, $3)`,
       [JSON.stringify(embedding), response, expiresAt]  // JSON.stringify is correct
     );
-    
-    console.log(`💾 Cached response (TTL: ${ttlSeconds}s, expires: ${expiresAt.toISOString()})`);
-    
   } catch (error) {
     console.error('⚠️ Cache storage failed:', error);
   }

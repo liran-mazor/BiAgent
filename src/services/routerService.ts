@@ -25,10 +25,10 @@ export async function routeQuery(query: string): Promise<'simple' | 'complex'> {
     
     const decision = textBlock?.text.trim().toUpperCase();
     
-    if (decision === 'SIMPLE') {
+    if (decision?.includes('SIMPLE')) {
       console.log('  → SIMPLE (using Haiku)\n');
       return 'simple';
-    } else if (decision === 'COMPLEX') {
+    } else if (decision?.includes('COMPLEX')) {
       console.log('  → COMPLEX (using Sonnet)\n');
       return 'complex';
     } else {

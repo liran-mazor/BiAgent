@@ -29,7 +29,7 @@ async function generateSound(text: string, filename: string) {
 
 async function main() {
   await generateSound("yeah?", "confirmation.mp3");
-  await generateSound("On it", "ack.mp3");
+  await generateSound("On it!", "ack.mp3");
   console.log('\n✅ Voice assets generated!');
 }
 

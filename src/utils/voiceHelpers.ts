@@ -1,5 +1,5 @@
 require('dotenv').config();
-const path = require('path');
+import { AUDIO_PATHS } from "../voice/audioPaths";
 const fs = require('fs');
 const OpenAI = require('openai');
 const record = require('node-record-lpcm16');
@@ -11,14 +11,14 @@ const openai = new OpenAI({
 
 const ttsClient = new textToSpeech.TextToSpeechClient();
 
-export function playSound(soundPath: string, description: string): Promise<void> {
+export function playSound(soundPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const player = require('play-sound')({});
     
     setTimeout(() => {
       player.play(soundPath, (err: any) => {
         if (err) {
-          console.error(`Failed to play ${description}:`, err);
+          console.error(`Failed to play ${soundPath}:`, err);
           reject(err);
         } else {
           resolve();
@@ -44,18 +44,14 @@ export async function speakText(text: string): Promise<void> {
 
   const [response] = await ttsClient.synthesizeSpeech(request);
   
-  const audioPath = path.join(__dirname, '../../temp/tts-response.mp3');
-  fs.writeFileSync(audioPath, response.audioContent, 'binary');
-  
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  await playSound(audioPath, 'response');
+  fs.writeFileSync(AUDIO_PATHS.TEMP_TTS_RESPONSE, response.audioContent, 'binary');
+  await playSound(AUDIO_PATHS.TEMP_TTS_RESPONSE);
 }
 
-export async function recordAndTranscribe(): Promise<string> {
+export async function recordUserQuery(): Promise<string> {
   console.log('🎙️  Recording your question (6 seconds)...');
   
-  const audioFile = path.join(__dirname, '../../temp/voice-query.wav');
+  const audioFile = AUDIO_PATHS.TEMP_VOICE_QUERY;
   const file = fs.createWriteStream(audioFile, { encoding: 'binary' });
 
   const recording = record.record({
@@ -66,21 +62,20 @@ export async function recordAndTranscribe(): Promise<string> {
   });
 
   recording.stream().pipe(file);
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, 6000));
   recording.stop();
   
   console.log('✅ Recording saved');
   
-  await playSound(path.join(__dirname, '../voice/ack.mp3'), 'acknowledgment');
-  
+  return audioFile;
+}
+
+export async function transcribeAudio(audioFilePath: string): Promise<string> {
   console.log('🎧 Transcribing with Whisper...');
   
   const transcription = await openai.audio.transcriptions.create({
-    file: fs.createReadStream(audioFile),
+    file: fs.createReadStream(audioFilePath),
     model: 'whisper-1',
   });
-  
-  console.log('📝 You said:', transcription.text);
-  
-  return transcription.text;
+  return `[VOICE_INTERFACE] ${transcription.text}`;
 }

@@ -22,8 +22,6 @@ export async function runInteractive() {
     output: process.stdout,
   });
 
-  const sessionId = `interactive_${Date.now()}`;
-
   const askQuestion = () => {
     rl.question('You: ', async (question) => {
       if (question.toLowerCase() === 'exit') {
@@ -40,7 +38,7 @@ export async function runInteractive() {
       }
 
       try {
-        const answer = await agent.run(question, sessionId, 20);
+        const answer = await agent.run(question);
         console.log(`\nAgentIQ: ${answer}\n`);
       } catch (error: any) {
         console.error(`\n❌ Error: ${error.message}\n`);
