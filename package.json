@@ -7,7 +7,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "seed:daily": "tsx src/scripts/dailySeed.ts",
     "clear-cache": "npx tsx src/scripts/clearCache.ts",
-    "voice:generate": "npx tsx src/scripts/generateVoiceAssets.ts",
+    "voice:generate": "npx tsx src/scripts/generateVoices.ts",
     "start": "tsx src/interfaces/index.ts",
     "interactive": "tsx src/interfaces/interactive.ts",
     "bot": "tsx src/interfaces/telegramBot.ts",
