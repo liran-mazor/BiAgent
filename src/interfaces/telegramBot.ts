@@ -46,7 +46,7 @@ bot.on('text', async (msg) => {
   try {
     await bot.sendChatAction(chatId, 'typing');
 
-    const answer = await agent.run(question, chatId.toString(), 20);
+    const answer = await agent.run(question, chatId.toString());
     
     const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
     if (chartUrlMatch) {
@@ -83,7 +83,7 @@ bot.on('voice', async (msg) => {
     await bot.sendMessage(chatId, `🎤 I heard: "${transcription.text}"\n\nProcessing...`);
     
     await bot.sendChatAction(chatId, 'typing');
-    const answer = await agent.run(transcription.text, chatId.toString(), 20);
+    const answer = await agent.run(transcription.text, chatId.toString());
     
     const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
     if (chartUrlMatch) {

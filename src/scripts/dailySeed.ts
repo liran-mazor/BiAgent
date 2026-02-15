@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { pool } from '../database/pool';
 import { faker } from '@faker-js/faker';
 
@@ -8,15 +7,34 @@ async function generateDailyData() {
   try {
     console.log('🌅 Generating daily data...');
     
-    // Set target date to today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Generate 20-40 new customers
+    const customerCount = faker.number.int({ min: 20, max: 40 });
+    console.log(`👥 Generating ${customerCount} new customers...`);
+    
+    for (let i = 0; i < customerCount; i++) {
+      const customerTime = new Date(today);
+      customerTime.setHours(faker.number.int({ min: 0, max: 23 }));
+      customerTime.setMinutes(faker.number.int({ min: 0, max: 59 }));
+      
+      await client.query(
+        'INSERT INTO customers (email, name, created_at) VALUES ($1, $2, $3)',
+        [
+          faker.internet.email().toLowerCase(),
+          faker.person.fullName(),
+          customerTime
+        ]
+      );
+    }
+    
     // Generate 20-40 new orders for today
     const orderCount = faker.number.int({ min: 20, max: 40 });
+    console.log(`📦 Generating ${orderCount} new orders...`);
     
     for (let i = 0; i < orderCount; i++) {
-      // Random customer
+      // Random customer (including newly created ones)
       const customerResult = await client.query(
         'SELECT id FROM customers ORDER BY RANDOM() LIMIT 1'
       );
@@ -53,7 +71,7 @@ async function generateDailyData() {
       }
     }
     
-    console.log(`✅ Generated ${orderCount} orders for ${today.toDateString()}`);
+    console.log(`✅ Generated ${customerCount} customers and ${orderCount} orders for ${today.toDateString()}`);
   } catch (error) {
     console.error('❌ Error generating daily data:', error);
   } finally {

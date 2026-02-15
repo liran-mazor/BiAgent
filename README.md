@@ -168,19 +168,6 @@ Average cost: ~$0.005 per query (vs $0.015 without routing)
 Cost reduction: 70%
 ```
 
-### Hybrid Tool Architecture
-```
-Agent discovers tools at startup:
-├─ Native Tools (in-process)
-│  ├─ chart_tool      → Chart.js + S3
-│  ├─ web_search_tool → Tavily API
-│  ├─ email_tool      → SMTP + role resolution
-│  └─ calculator_tool → Math.js
-│
-└─ MCP Tools (via protocol)
-   └─ query_database  → PostgreSQL via MCP server
-```
-
 ### ReAct Loop
 ```
 1. Check semantic cache → Hit? Return immediately
@@ -209,21 +196,6 @@ npm run interactive
 # Telegram bot
 npm run bot
 ```
-
----
-
-## Interview Talking Points
-
-**"I built AgentIQ to demonstrate production-grade agentic AI engineering across three phases:**
-
-1. **Performance:** Semantic caching with pgvector cut API calls by 60%. Prompt caching saved 90% on system tokens. Parallel tool execution reduced latency 40-50%.
-
-2. **Architecture:** Implemented Model Context Protocol integration with standalone MCP server. Agent discovers tools dynamically. Demonstrates understanding of emerging AI infrastructure standards.
-
-3. **Cost Optimization:** Two-tier LLM architecture where Haiku routes queries to itself (simple) or Sonnet (complex). Achieved 70% cost reduction. Key insight: Haiku *reasons* about complexity using tool definitions in context—it's self-adapting, unlike brittle embedding-based routing.
-
-**Technical depth:** Raw ReAct implementation (no frameworks), hybrid tool architecture (native + MCP), dependency injection patterns, clean separation of concerns."
-
 ---
 
 ## Future Enhancements (Discussion Points)

@@ -10,6 +10,7 @@ import { routeQuery } from '../services/routerService.js';
 export class Agent {
   private client: Anthropic;
   private maxIterations = 10;
+  private maxHistoryMessages = 20;
   private conversationHistories: Map<string, Anthropic.MessageParam[]> = new Map();
 
   constructor(
@@ -22,8 +23,7 @@ export class Agent {
 
   public async run(
     question: string,
-    sessionId: string,
-    maxHistoryMessages?: number
+    sessionId?: string
   ): Promise<string> {
     console.log(`\n🤔 Question: ${question}\n`);
   
@@ -40,12 +40,15 @@ export class Agent {
       : 'claude-sonnet-4-20250514';
     console.log(`🤖 Using model: ${model}\n`);
 
-    let messages = this.conversationHistories.get(sessionId) || [];
+    // Generate session ID if not provided (for stateless interfaces)
+    const actualSessionId = sessionId || `session_${Date.now()}`;
+  
+    let messages = this.conversationHistories.get(actualSessionId) || [];
     
-    // Apply sliding window if maxHistoryMessages is set
-    if (maxHistoryMessages && messages.length > maxHistoryMessages) {
-      console.log(`📊 Trimming conversation history: ${messages.length} -> ${maxHistoryMessages} messages`);
-      messages = messages.slice(-maxHistoryMessages);
+    // Apply sliding window (always 20 messages max)
+    if (messages.length > this.maxHistoryMessages) {
+      console.log(`📊 Trimming conversation history: ${messages.length} -> ${this.maxHistoryMessages} messages`);
+      messages = messages.slice(-this.maxHistoryMessages);
     }
     
     messages.push({ role: 'user', content: createUserPrompt(question) });
@@ -86,7 +89,10 @@ export class Agent {
         
         messages.push({ role: 'assistant', content: response.content });
         
-        this.conversationHistories.set(sessionId, messages);
+        // Only store conversation history if sessionId was provided (conversational interfaces)
+        if (sessionId) {
+          this.conversationHistories.set(actualSessionId, messages);
+        }
         
         const finalResponse = textBlock?.text || 'No response generated';
         
