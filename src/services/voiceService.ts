@@ -1,13 +1,9 @@
 require('dotenv').config();
-import { AUDIO_PATHS } from "../voice/audioPaths";
 const fs = require('fs');
-const OpenAI = require('openai');
 const record = require('node-record-lpcm16');
 const textToSpeech = require('@google-cloud/text-to-speech');
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { AUDIO_PATHS } from "../voice/audioPaths";
+import { openai } from '../config/clients';
 
 const ttsClient = new textToSpeech.TextToSpeechClient();
 
@@ -49,7 +45,7 @@ export async function speakText(text: string): Promise<void> {
 }
 
 export async function recordUserQuery(): Promise<string> {
-  console.log('🎙️  Recording your question (6 seconds)...');
+  console.log('🎙️  Recording your question (8 seconds)...');
   
   const audioFile = AUDIO_PATHS.TEMP_VOICE_QUERY;
   const file = fs.createWriteStream(audioFile, { encoding: 'binary' });
@@ -62,7 +58,7 @@ export async function recordUserQuery(): Promise<string> {
   });
 
   recording.stream().pipe(file);
-  await new Promise(resolve => setTimeout(resolve, 6000));
+  await new Promise(resolve => setTimeout(resolve, 8000));
   recording.stop();
   
   console.log('✅ Recording saved');

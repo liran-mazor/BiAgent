@@ -1,24 +1,28 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { anthropic } from '../config/clients';
+import { CLAUDE } from '../agent/models.js';
+import { SYSTEM_PROMPT, createUserPrompt } from './prompts.js';
 import { tools, getToolByName } from '../tools';
-import { SYSTEM_PROMPT, createUserPrompt } from './prompts';
-import { getCachedResponse, cacheResponse } from '../services/cacheService';
-import { MCPClient } from '../mcp/client.js';
 import { MCPTool } from '../mcp/types.js';
-import { zodToJsonSchema } from '../utils/zodToJsonSchema.js';
+import { MCPClient } from '../mcp/client.js';
+import { A2ATool } from '../a2a/types.js';
 import { routeQuery } from '../services/routerService.js';
+import { getCachedResponse, cacheResponse } from '../services/cacheService';
+import { summarizeHistory } from '../services/summaryService.js';
+import { getCircuitBreaker } from '../utils/circuitBreaker';
+import { zodToJsonSchema } from '../utils/zodToJsonSchema.js';
 
 export class Agent {
   private client: Anthropic;
-  private maxIterations = 10;
-  private maxHistoryMessages = 20;
+  private maxIterations = 15;
   private conversationHistories: Map<string, Anthropic.MessageParam[]> = new Map();
-
+  
   constructor(
-    apiKey: string,
     private mcpTools: MCPTool[] = [],
-    private mcpClientMap: Map<string, MCPClient> = new Map()
+    private mcpClientMap: Map<string, MCPClient> = new Map(),
+    private a2aTools: A2ATool[] = []
   ) {
-    this.client = new Anthropic({ apiKey });
+    this.client = anthropic;
   }
 
   public async run(
@@ -27,139 +31,46 @@ export class Agent {
   ): Promise<string> {
     console.log(`\n🤔 Question: ${question}\n`);
   
-    // Check cache first
     console.log('🔍 Checking cache...');
     const cachedResponse = await getCachedResponse(question);
     if (cachedResponse) {
       return cachedResponse;
     }
     
-    const complexity = await routeQuery(question);
-    const model = complexity === 'simple' 
-      ? 'claude-3-5-haiku-20241022' 
-      : 'claude-sonnet-4-20250514';
+    const model = await routeQuery(question);
     console.log(`🤖 Using model: ${model}\n`);
 
-    // Generate session ID if not provided (for stateless interfaces)
+    const formattedTools = this.formatToolsForClaude();
+
     const actualSessionId = sessionId || `session_${Date.now()}`;
   
     let messages = this.conversationHistories.get(actualSessionId) || [];
     
-    // Apply sliding window (always 20 messages max)
-    if (messages.length > this.maxHistoryMessages) {
-      console.log(`📊 Trimming conversation history: ${messages.length} -> ${this.maxHistoryMessages} messages`);
-      messages = messages.slice(-this.maxHistoryMessages);
-    }
+    messages = await this.manageContext(messages, formattedTools);
     
     messages.push({ role: 'user', content: createUserPrompt(question) });
-  
-    let iteration = 0;
-  
-    while (iteration < this.maxIterations) {
-      iteration++;
+    
+    for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
       console.log(`\n--- Iteration ${iteration} ---`);
   
-      // Call Claude with tools (native + MCP)
-      const response = await this.client.messages.create({
-        model: model,
-        max_tokens: 4096,
-        system: [
-          {
-            type: 'text',
-            text: SYSTEM_PROMPT,
-            cache_control: { type: 'ephemeral' }
-          }
-        ],
-        messages,
-        tools: this.formatToolsForClaude(),
-      });
+      const response = await this.callLLM(model, messages, formattedTools);
   
       console.log(`Stop reason: ${response.stop_reason}`);
   
-      // Check if Claude wants to use tools (can be multiple)
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
       );
   
       if (toolUseBlocks.length === 0) {
-        // No tool use - Claude has final answer
-        const textBlock = response.content.find(
-          (block): block is Anthropic.TextBlock => block.type === 'text'
-        );
-        
-        messages.push({ role: 'assistant', content: response.content });
-        
-        // Only store conversation history if sessionId was provided (conversational interfaces)
-        if (sessionId) {
-          this.conversationHistories.set(actualSessionId, messages);
-        }
-        
-        const finalResponse = textBlock?.text || 'No response generated';
-        
-        // Cache the final response
-        await cacheResponse(question, finalResponse);
-        
-        return finalResponse;
+        return await this.handleFinalResponse(response, messages, question, actualSessionId);
       }
   
-      // Execute tools in parallel (both native and MCP)
       console.log(`🔧 Using ${toolUseBlocks.length} tool(s): ${toolUseBlocks.map(b => b.name).join(', ')}`);
   
-      const toolExecutions = toolUseBlocks.map(async (toolUseBlock) => {
-        console.log(`  → ${toolUseBlock.name}:`, JSON.stringify(toolUseBlock.input, null, 2));
-        
-        // Check if it's a native tool
-        const nativeTool = getToolByName(toolUseBlock.name);
-        if (nativeTool) {
-          const result = await nativeTool.execute(toolUseBlock.input);
-          console.log(`  ← ${toolUseBlock.name} (native):`, result.success ? '✅ Success' : '❌ Failed');
-          
-          return {
-            tool_use_id: toolUseBlock.id,
-            result
-          };
-        }
-        
-        // Check if it's an MCP tool
-        const mcpTool = this.mcpTools.find(t => t.name === toolUseBlock.name);
-        if (mcpTool) {
-          try {
-            // Find the client that has this tool
-            const client = this.mcpClientMap.get(toolUseBlock.name);
-            if (!client) {
-              throw new Error(`No MCP client found for tool: ${toolUseBlock.name}`);
-            }
-            
-            const mcpResult = await client.callTool(toolUseBlock.name, toolUseBlock.input);
-            
-            console.log(`  ← ${toolUseBlock.name} (MCP):`, '✅ Success');
-            
-            return {
-              tool_use_id: toolUseBlock.id,
-              result: {
-                success: true,
-                data: mcpResult
-              }
-            };
-          } catch (error: any) {
-            console.log(`  ← ${toolUseBlock.name} (MCP):`, '❌ Failed');
-            
-            return {
-              tool_use_id: toolUseBlock.id,
-              result: {
-                success: false,
-                error: error.message
-              }
-            };
-          }
-        }
-        
-        throw new Error(`Tool ${toolUseBlock.name} not found in native or MCP tools`);
-      });
+      const toolResults = await Promise.all(
+        toolUseBlocks.map(block => this.executeTool(block))
+      );
   
-      const toolResults = await Promise.all(toolExecutions);
-  
-      // Add assistant response and all tool results to messages
       messages.push({ role: 'assistant', content: response.content });
       messages.push({
         role: 'user',
@@ -170,22 +81,36 @@ export class Agent {
         })),
       });
   
-      // Check if any tool failed
-      const anyFailed = toolResults.some(({ result }) => !result.success);
-      if (anyFailed && response.stop_reason === 'end_turn') {
-        const failedTools = toolResults.filter(({ result }) => !result.success);
-        return `Tool execution failed: ${failedTools.map(({ result }) => result.error).join(', ')}`;
-      }
+      const failureMessage = this.checkToolFailures(toolResults, response.stop_reason);
+      if (failureMessage) return failureMessage;
     }
   
     return `Max iterations (${this.maxIterations}) reached without final answer`;
   }
 
+  private async callLLM(
+    model: string,
+    messages: Anthropic.MessageParam[],
+    formattedTools: any[]
+  ): Promise<Anthropic.Message> {
+    return this.client.messages.create({
+      model,
+      max_tokens: 4096,
+      system: [
+        {
+          type: 'text',
+          text: SYSTEM_PROMPT,
+          cache_control: { type: 'ephemeral' }
+        }
+      ],
+      messages,
+      tools: formattedTools,
+    });
+  }
+
   private formatToolsForClaude() {
-    // Native tools
     const nativeTools = tools.map(tool => {
       const shape = (tool.parameters as any)._def.shape;
-      
       return {
         name: tool.name,
         description: tool.description,
@@ -196,14 +121,143 @@ export class Agent {
         },
       };
     });
-
-    // MCP tools (already in correct format)
+  
     const mcpToolsFormatted = this.mcpTools.map(tool => ({
       name: tool.name,
       description: tool.description,
       input_schema: tool.inputSchema,
     }));
+  
+    const a2aToolsFormatted = this.a2aTools.map(tool => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.inputSchema,
+    }));
+  
+    const allTools = [...nativeTools, ...mcpToolsFormatted, ...a2aToolsFormatted];
+  
+    return allTools.map((tool, index) => 
+      index === allTools.length - 1
+        ? { ...tool, cache_control: { type: 'ephemeral' as const } }
+        : tool
+    );
+  }
 
-    return [...nativeTools, ...mcpToolsFormatted];
+  private async manageContext(messages: Anthropic.MessageParam[], formattedTools: any[]) {
+    if (messages.length === 0) return messages;
+    
+    if (messages.length < 10) return this.markHistoryCacheBoundary(messages);
+
+    const { input_tokens } = await this.client.messages.countTokens({
+      model: CLAUDE.Haiku,
+      system: SYSTEM_PROMPT,
+      messages,
+      tools: formattedTools
+    });
+  
+    if (input_tokens > 170000) {
+      console.log(`📊 Token limit approaching (${input_tokens} tokens), summarizing...`);
+      const midpoint = Math.floor(messages.length / 2);
+      const summary = await summarizeHistory(messages.slice(0, midpoint));
+      messages = [
+        { role: 'user', content: `Previous conversation summary: ${summary}` },
+        ...messages.slice(midpoint)
+      ];
+    }
+  
+    return this.markHistoryCacheBoundary(messages);
+  }
+  
+  private markHistoryCacheBoundary(messages: Anthropic.MessageParam[]) {
+    const lastMessage = messages[messages.length - 1];
+    const contentBlocks = typeof lastMessage.content === 'string'
+      ? [{ type: 'text' as const, text: lastMessage.content }]
+      : [...lastMessage.content as any[]];
+  
+    contentBlocks[contentBlocks.length - 1] = {
+      ...contentBlocks[contentBlocks.length - 1],
+      cache_control: { type: 'ephemeral' as const }
+    };
+  
+    messages[messages.length - 1] = { ...lastMessage, content: contentBlocks };
+    return messages;
+  }
+
+  private async executeTool(toolUseBlock: Anthropic.ToolUseBlock): Promise<{ tool_use_id: string; result: any }> {
+    console.log(`  → ${toolUseBlock.name}:`, JSON.stringify(toolUseBlock.input, null, 2));
+  
+    // Native tool — in-process, no retry needed
+    const nativeTool = getToolByName(toolUseBlock.name);
+    if (nativeTool) {
+      const result = await nativeTool.execute(toolUseBlock.input);
+      console.log(`  ← ${toolUseBlock.name} (native):`, result.success ? '✅ Success' : '❌ Failed');
+      return { tool_use_id: toolUseBlock.id, result };
+    }
+  
+    // MCP tool — network call, retry with exponential backoff
+    const mcpTool = this.mcpTools.find(t => t.name === toolUseBlock.name);
+    if (mcpTool) {
+      try {
+        const client = this.mcpClientMap.get(toolUseBlock.name);
+        if (!client) throw new Error(`No MCP client found for tool: ${toolUseBlock.name}`);
+        
+        const breaker = getCircuitBreaker(toolUseBlock.name, 
+          (name: string, input: any) => client.callTool(name, input)
+        );
+        const result = await breaker.fire(toolUseBlock.name, toolUseBlock.input);
+        console.log(`  ← ${toolUseBlock.name} (MCP): ✅ Success`);
+        return { tool_use_id: toolUseBlock.id, result: { success: true, data: result } };
+      } catch (error: any) {
+        console.log(`  ← ${toolUseBlock.name} (MCP): ❌ Failed`);
+        return { tool_use_id: toolUseBlock.id, result: { success: false, error: error.message } };
+      }
+    }
+
+    const a2aTool = this.a2aTools.find(t => t.name === toolUseBlock.name);
+    if (a2aTool) {
+      try {
+        const breaker = getCircuitBreaker(toolUseBlock.name,
+          (input: any) => a2aTool.execute(input)
+        );
+        const result = await breaker.fire(toolUseBlock.input);
+        console.log(`  ← ${toolUseBlock.name} (A2A): ✅ Success`);
+        return { tool_use_id: toolUseBlock.id, result };
+      } catch (error: any) {
+        console.log(`  ← ${toolUseBlock.name} (A2A): ❌ Failed`);
+        return { tool_use_id: toolUseBlock.id, result: { success: false, error: error.message } };
+      }
+    }
+  
+    throw new Error(`Tool ${toolUseBlock.name} not found in native, MCP, or A2A tools`);
+  }
+
+  private async handleFinalResponse(
+    response: Anthropic.Message,
+    messages: Anthropic.MessageParam[],
+    question: string,
+    sessionId: string
+  ): Promise<string> {
+    const textBlock = response.content.find(
+      (block): block is Anthropic.TextBlock => block.type === 'text'
+    );
+  
+    messages.push({ role: 'assistant', content: response.content });
+    this.conversationHistories.set(sessionId, messages);
+  
+    const finalResponse = textBlock?.text || 'No response generated';
+    await cacheResponse(question, finalResponse);
+    return finalResponse;
+  }
+  
+  private checkToolFailures(
+    toolResults: { tool_use_id: string; result: any }[],
+    stopReason: Anthropic.Messages.StopReason | null
+  ): string | null {
+    const anyFailed = toolResults.some(({ result }) => !result.success);
+    if (anyFailed && stopReason === 'end_turn') {
+      const failedTools = toolResults.filter(({ result }) => !result.success);
+      return `Tool execution failed: ${failedTools.map(({ result }) => result.error).join(', ')}`;
+    }
+    return null;
   }
 }

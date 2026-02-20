@@ -40,7 +40,7 @@ const gradientColors = [
 ];
 
 export const chartTool: Tool = {
-  name: 'chart_tool',
+  name: 'chart',
   description: 'Generate beautiful, modern charts (bar/line/pie) with gradients, shadows, and data labels as PNG images. Only use this when the user explicitly requests a chart, graph, or visualization.',
   parameters: ChartToolParams,
   

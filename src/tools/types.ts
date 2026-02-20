@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-// Base tool interface
 export interface Tool {
   name: string;
   description: string;
@@ -8,7 +7,6 @@ export interface Tool {
   execute: (params: any) => Promise<ToolResult>;
 }
 
-// Tool execution result
 export interface ToolResult {
   success: boolean;
   data?: any;

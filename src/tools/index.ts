@@ -9,7 +9,7 @@ export const tools: Tool[] =
   chartTool, 
   emailTool, 
   webSearchTool, 
-  calculatorTool
+  calculatorTool,
 ];
 
 export function getToolByName(name: string): Tool | undefined {

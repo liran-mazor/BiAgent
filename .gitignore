@@ -4,6 +4,5 @@ charts/
 dist/
 *.log
 .DS_Store
-PROJECT_STATE.md
 agentiq-alfred-4a025cb04d67.json
 *.json

@@ -1,20 +1,24 @@
 import readline from 'readline';
 import { Agent } from '../agent/agent';
-import { mcpServers } from '../config/mcpServers';
+import { mcpServers } from '../mcp/mcpServers';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
+import { initializeA2ATools } from '../a2a/forecastClient';
 
 export async function runInteractive() {
   console.log('\n🤖 AgentIQ Interactive Mode');
   console.log('Type your questions (or "exit" to quit)\n');
 
   // Initialize MCP clients
-  const { clients, tools, clientMap } = await initializeMCPClients(mcpServers);
+  const { mcpClients, mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
+
+  // Discover and register A2A tools dynamically
+  const a2aTools = await initializeA2ATools();
 
   // Inject into agent
   const agent = new Agent(
-    process.env.ANTHROPIC_API_KEY!,
-    tools,
-    clientMap
+    mcpTools,
+    mcpClientMap,
+    a2aTools
   );
 
   const rl = readline.createInterface({
@@ -26,7 +30,7 @@ export async function runInteractive() {
     rl.question('You: ', async (question) => {
       if (question.toLowerCase() === 'exit') {
         console.log('\nGoodbye! 👋\n');
-        await cleanupMCPClients(clients);
+        await cleanupMCPClients(mcpClients);
         rl.close();
         process.exit(0);
         return;

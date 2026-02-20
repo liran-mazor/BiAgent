@@ -1,28 +1,22 @@
 import { Agent } from '../agent/agent';
-import { mcpServers } from '../config/mcpServers';
+import { mcpServers } from '../mcp/mcpServers';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
+import { initializeA2ATools } from '../a2a/forecastClient';
 
 async function main() {
   const question = process.argv.slice(2).join(' ');
 
-  if (!question) {
-    console.error('Usage: npm start "your question here"');
-    process.exit(1);
-  }
-
   try {
-    // Initialize MCP clients outside agent
-    const { clients, tools, clientMap } = await initializeMCPClients(mcpServers);
+    const { mcpClients, mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
+    const a2aTools = await initializeA2ATools();
 
-    // Inject into agent
     const agent = new Agent(
-      process.env.ANTHROPIC_API_KEY!,
-      tools,
-      clientMap
+      mcpTools,
+      mcpClientMap,
+      a2aTools
     );
 
-    const sessionId = `cli_${Date.now()}`;
-    const answer = await agent.run(question, sessionId);
+    const answer = await agent.run(question);
 
     console.log('\n' + '='.repeat(80));
     console.log('📊 Final Answer:');
@@ -30,8 +24,7 @@ async function main() {
     console.log(answer);
     console.log('='.repeat(80) + '\n');
 
-    // Cleanup outside agent
-    await cleanupMCPClients(clients);
+    await cleanupMCPClients(mcpClients);
     process.exit(0);
   } catch (error) {
     console.error('Error:', error);

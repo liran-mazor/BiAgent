@@ -1,50 +1,72 @@
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
 import { Tool, ToolResult } from './types';
-import { resolveRecipient, teamMembers } from '../config/team';
 import * as path from 'path';
 
+// Team configuration
+interface TeamMember {
+  name: string;
+  email: string;
+  role: string;
+}
+
+const teamMembers: Record<string, TeamMember> = {
+  team_leader: {
+    name: 'Liran Mazor',
+    email: 'lirand95@gmail.com',
+    role: 'team_leader',
+  },
+  vp: {
+    name: 'Tal Adel',
+    email: 'talf18@gmail.com',
+    role: 'vp',
+  },
+};
+
+function resolveRecipient(recipient: string): string | null {
+  const member = teamMembers[recipient.toLowerCase().replace(/\s+/g, '_')];
+  if (member) return member.email;
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (emailRegex.test(recipient)) return recipient;
+
+  return null;
+}
+
+// Tool definition
 export const EmailToolParams = z.object({
-  recipient: z.string().describe('Email address or role (e.g., "team_leader", "cto", or "john@company.com")'),
+  recipient: z.string().describe('Email address or role (e.g., "team_leader", "vp", or "john@company.com")'),
   subject: z.string().describe('Email subject line'),
   body: z.string().describe('Email body content'),
-  attachments: z.array(z.string()).optional().describe('Optional array of file paths to attach (e.g., chart files)'),
+  attachments: z.array(z.string()).optional().describe('Optional array of file paths to attach'),
 });
 
 export type EmailToolInput = z.infer<typeof EmailToolParams>;
 
 export const emailTool: Tool = {
-  name: 'email_tool',
-  description: 'Send an email with optional attachments. Use when user requests to send, email, or share results. Recipient can be a role (team_leader, cto, vp, ceo) or direct email address.',
+  name: 'email',
+  description: 'Send an email with optional attachments. Use when user requests to send, email, or share results. Recipient can be a role (team_leader, vp) or direct email address.',
   parameters: EmailToolParams,
   execute: async (params: any): Promise<ToolResult> => {
     try {
-      // Handle case where attachments might be a JSON string
       if (typeof params.attachments === 'string') {
         try {
           params.attachments = JSON.parse(params.attachments);
         } catch (e) {
-          return {
-            success: false,
-            error: 'Invalid attachments format. Must be an array of file paths.',
-          };
+          return { success: false, error: 'Invalid attachments format. Must be an array of file paths.' };
         }
       }
-  
-      // Validate input
+
       const validated = EmailToolParams.parse(params);
-      
-      // Resolve recipient (role → email or validate email)
       const recipientEmail = resolveRecipient(validated.recipient);
-      
+
       if (!recipientEmail) {
         return {
           success: false,
-          error: `Recipient "${validated.recipient}" not found in team members and is not a valid email address. Available roles: ${Object.keys(teamMembers).join(', ')}`,
+          error: `Recipient "${validated.recipient}" not found. Available roles: ${Object.keys(teamMembers).join(', ')}`,
         };
       }
-  
-      // Create transporter
+
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: parseInt(process.env.SMTP_PORT!),
@@ -54,14 +76,12 @@ export const emailTool: Tool = {
           pass: process.env.SMTP_PASS,
         },
       });
-  
-      // Prepare attachments
+
       const attachments = validated.attachments?.map((filePath) => ({
         filename: path.basename(filePath),
         path: filePath,
       })) || [];
-  
-      // Send email
+
       const info = await transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: recipientEmail,
@@ -69,7 +89,7 @@ export const emailTool: Tool = {
         text: validated.body,
         attachments,
       });
-  
+
       return {
         success: true,
         data: {

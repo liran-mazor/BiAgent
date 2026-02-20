@@ -1,22 +1,23 @@
 require('dotenv').config();
 import { Agent } from '../agent/agent';
+import { mcpServers } from '../mcp/mcpServers';
 import { initializeMCPClients } from '../mcp/bootstrap';
-import { mcpServers } from '../config/mcpServers';
-import { playSound, speakText, transcribeAudio, recordUserQuery } from '../utils/voiceHelpers';
+import { initializeA2ATools } from '../a2a/forecastClient';
+import { Porcupine } from '@picovoice/porcupine-node';
+import { PvRecorder } from '@picovoice/pvrecorder-node';
 import { AUDIO_PATHS } from '../voice/audioPaths';
-const { Porcupine } = require('@picovoice/porcupine-node');
-const { PvRecorder } = require('@picovoice/pvrecorder-node');
+import { playSound, speakText, transcribeAudio, recordUserQuery } from '../services/voiceService';
 
-const WAKE_WORD_SENSITIVITY = 0.9;
+const WAKE_WORD_SENSITIVITY = 0.8;
 
 async function startVoiceInterface() {
-  console.log('🎤 Initializing voice interface...');
+  const { mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
+  const a2aTools = await initializeA2ATools();
 
-  const { tools, clientMap } = await initializeMCPClients(mcpServers);
   const agent = new Agent(
-    process.env.ANTHROPIC_API_KEY!,
-    tools,
-    clientMap
+    mcpTools,
+    mcpClientMap,
+    a2aTools
   );
 
   const handle = new Porcupine(
@@ -45,7 +46,7 @@ async function startVoiceInterface() {
       await playSound(AUDIO_PATHS.ACK);
       
       const query = await transcribeAudio(audioFile);
-      
+
       const response = await agent.run(query);
     
       await speakText(response);

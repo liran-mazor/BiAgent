@@ -3,13 +3,13 @@ import { MCPTool, MCPServerConfig } from './types.js';
 
 export async function initializeMCPClients(
 configs: MCPServerConfig[]): Promise<{
-  clients: MCPClient[];
-  tools: MCPTool[];
-  clientMap: Map<string, MCPClient>;
+  mcpClients: MCPClient[];
+  mcpTools: MCPTool[];
+  mcpClientMap: Map<string, MCPClient>;
 }> {
-  const clients: MCPClient[] = [];
-  const tools: MCPTool[] = [];
-  const clientMap = new Map<string, MCPClient>();
+  const mcpClients: MCPClient[] = [];
+  const mcpTools: MCPTool[] = [];
+  const mcpClientMap = new Map<string, MCPClient>();
 
   console.log('Initializing MCP clients...');
 
@@ -18,21 +18,17 @@ configs: MCPServerConfig[]): Promise<{
     await client.connect();
     const serverTools = await client.listTools();
 
-    clients.push(client);
-    tools.push(...serverTools);
+    mcpClients.push(client);
+    mcpTools.push(...serverTools);
 
     // Map each tool to its client (for multi-server support)
     serverTools.forEach(tool => {
-      clientMap.set(tool.name, client);
+      mcpClientMap.set(tool.name, client);
     });
 
-    console.log(
-      `Connected to MCP server, discovered ${serverTools.length} tools:`,
-      serverTools.map(t => t.name)
-    );
   }
 
-  return { clients, tools, clientMap };
+  return { mcpClients, mcpTools, mcpClientMap };
 }
 
 export async function cleanupMCPClients(clients: MCPClient[]): Promise<void> {

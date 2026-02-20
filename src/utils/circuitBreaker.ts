@@ -1,0 +1,25 @@
+import CircuitBreaker from 'opossum';
+
+const CIRCUIT_BREAKER_OPTIONS = {
+  timeout: 5000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 10000
+} as const;
+
+const breakers: Map<string, CircuitBreaker> = new Map();
+
+export function getCircuitBreaker(name: string, fn?: (...args: any[]) => Promise<any>): CircuitBreaker {
+  if (!breakers.has(name)) {
+    if (!fn) throw new Error(`Circuit breaker "${name}" not initialized — fn required on first call`);
+    const breaker = new CircuitBreaker(fn, CIRCUIT_BREAKER_OPTIONS);
+    breaker.on('open', () => console.log(`⚡ Circuit OPEN for ${name} — stopping calls`));
+    breaker.on('halfOpen', () => console.log(`⚡ Circuit HALF-OPEN for ${name} — probing...`));
+    breaker.on('close', () => console.log(`✅ Circuit CLOSED for ${name} — recovered`));
+    breaker.fallback(() => ({
+      success: false,
+      error: `${name} is temporarily unavailable, please try again later`
+    }));
+    breakers.set(name, breaker);
+  }
+  return breakers.get(name)!;
+}

@@ -1,5 +1,5 @@
 cat > README.md << 'EOF'
-# AgentIQ - Autonomous Business Intelligence Agent
+# BiAgent - Autonomous Business Intelligence Agent
 
 > **⚠️ Demo Project**: Technical demonstration showcasing agentic AI engineering for interviews.
 
@@ -30,52 +30,64 @@ An AI agent that autonomously answers business questions by intelligently select
 
 ## System Architecture
 ```
-┌───────────────────────────────────────────────┐
-│               User Interfaces                 │
-├─────────────────┬─────────────────────────────┤
-│  CLI Terminal   │  Telegram Bot (Voice/Text)  │
-└─────┬───────────┴───────────────────┬─────────┘
-      │                               │
-   Text Query                   Voice ──► OpenAI Whisper
-      │                               │
-      └────────────────┬──────────────┘
-                       ▼
-       ┌────────────────────────────┐
-       │    Router (Haiku 3.5)      │  
-       │  Analyzes query complexity │
-       └──────────────┬─────────────┘
-                      │
-             ┌────────┴─────────┐
-             ▼                  ▼
-       ┌──────────────┐   ┌─────────────┐
-       │  Haiku 3.5   │   │  Sonnet 4   │
-       │   (Simple)   │   │  (Complex)  │
-       └────────┬─────┘   └──────┬──────┘
-             │                 │
-             └────────┬────────┘
-                      ▼
-         ┌────────────────────────────┐
-         │ AgentIQ - ReAct Core Agent │   
-         │  Semantic Cache (pgvector) │
-         │       Memorization         │
-         │       Prompt Cache         │ 
-         │  Parallel Tool Execution   │
-         └────────────┬───────────────┘
-                      │
-            ┌─────────┴───────────┐
-            │                     │
-            ▼                     ▼                 
-      ┌──────────┐         ┌──────────────┐ 
-      │ MCP Tool │         │ Native Tools │ 
-      └─────┬────┘         └─────┬────────┘ 
-            │                    │             
-            ▼                    ▼             
-    ┌───────────────┐     ┌────────────────┐
-    │   MCP Server  │     │ Chart.js + S3  │
-    │query_database │     │ Web Search     │
-    │               │     │ Email          │
-    │ PG + pgvector │     │ Calculator     │
-    └───────────────┘     └────────────────┘
+   ┌───────────────────────────────────────────────┐
+   │               User Interfaces                 │
+   ├─────────────────┬─────────────────────────────┤
+   │  CLI Terminal   │  Telegram Bot (Voice/Text)  │
+   └──────┬──────────┴───────────────────┬─────────┘
+          │                              │
+       Text Query                   Voice ──► OpenAI Whisper
+          │                              │
+          └───────────────┬──────────────┘
+                          ▼
+              ◆───────────────────────◆
+              │    Semantic Cache     │ 
+              │ pgvector + embeddings │
+              ◆───────────┬───────────◆
+                          │
+                      ┌───┴───┐
+                      │       │
+                     Hit     Miss
+                      │       │
+                   Return     │
+                              ▼
+          ┌────────────────────────────┐
+          │    Router (Haiku 3.5)      │  
+          │  Analyzes query complexity │
+          └──────────────┬─────────────┘
+                         │
+                ┌────────┴────────┐
+                ▼                 ▼
+          ┌───────────┐     ┌───────────┐
+          │ Haiku 3.5 │     │ Sonnet 4  │
+          │  (Simple) │     │ (Complex) │
+          └─────┬─────┘     └─────┬─────┘
+                │                 │
+                └────────┬────────┘
+                         ▼
+           ┌───────────────────────────┐
+           │  BiAgent - ReAct Core     │
+           │ • Conversation Memory     │
+           │ • Prompt Caching (3/4)    │
+           │ • Parallel Tool Execution │
+           └───────────────────────────┘
+                         │
+       ┌─────────────────┼──────────────────┐
+       │                 │                  │
+       ▼                 ▼                  ▼                 
+  ┌──────────┐      ┌──────────┐       ┌──────────────┐ 
+  │ MCP Tool │      │ A2A tool │       │ Native Tools │ 
+  └─────┬────┘      └────┬─────┘       └──────┬───────┘ 
+        │                │                    │      
+      STDIO             HTTP              In-process
+        │                │                    │             
+        ▼                ▼                    ▼             
+┌───────────────┐ ┌────────────────┐ ┌─────────────────┐
+│   MCP Server  │ │ ForecastAgent  │ │ • Chart.js + S3 │
+│query_database │ │forecast_revenue│ │ • Web Search    │
+│       +       │ └────────────────┘ │ • Email         │
+│  PostgreSQL   │                    │ • Calculator    │
+└───────────────┘                    └─────────────────┘
 
 ```
 
@@ -137,7 +149,7 @@ Agent:
 
 ## With vs Without Agent
 
-**Without AgentIQ** (Manual):
+**Without BiAgent** (Manual):
 1. Open database client
 2. Ask ChatGPT for SQL query
 3. Run query, get results
@@ -148,7 +160,7 @@ Agent:
 
 ⏱️ **15-20 minutes**
 
-**With AgentIQ** (Autonomous):
+**With BiAgent** (Autonomous):
 ```bash
 npm start "Compare our AOV to Germany industry, create chart, email to team leader"
 ```

@@ -1,5 +1,15 @@
-import { pool } from '../database/pool';
+import dotenv from 'dotenv';
+dotenv.config();
+import { Pool } from 'pg';
 import { embedQuery } from './embeddingService';
+
+export const pool = new Pool({
+  host: process.env.POSTGRES_HOST,
+  port: parseInt(process.env.POSTGRES_PORT || '5432'),
+  user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  database: process.env.POSTGRES_DB,
+});
 
 const SIMILARITY_THRESHOLD = 0.15; // 85% similarity
 
