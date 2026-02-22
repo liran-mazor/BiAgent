@@ -2,35 +2,39 @@ import axios from 'axios';
 
 const FORECAST_AGENT_URL = 'http://localhost:3001';
 
-export async function discoverForecastAgent() {
-  try {
-    const response = await axios.get(`${FORECAST_AGENT_URL}/.well-known/agent.json`);
-    return response.data;
-  } catch (error: any) {
-    throw new Error(`Failed to discover ForecastAgent at ${FORECAST_AGENT_URL}: ${error.message}`);
+async function discoverWithRetry(): Promise<any> {
+  const RETRY_ATTEMPTS = 5;
+  const RETRY_DELAY_MS = 2000;
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      const response = await axios.get(`${FORECAST_AGENT_URL}/.well-known/agent.json`);
+      return response.data;
+    } catch {
+      if (attempt === RETRY_ATTEMPTS) throw new Error(`ForecastAgent not ready after ${RETRY_ATTEMPTS} attempts`);
+      console.log(`⏳ Waiting for ForecastAgent... (${attempt}/${RETRY_ATTEMPTS})`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+    }
   }
 }
 
 export async function initializeA2ATools() {
-  const agentCard = await discoverForecastAgent();
+  const agentCard = await discoverWithRetry();
   console.log(`Agent card was discovered: ${agentCard.name}`);
-  
+
   const a2aTools = agentCard.capabilities.tasks.map((task: any) => ({
     name: task.name,
     description: task.description,
     inputSchema: task.inputSchema,
     execute: async (input: any) => {
       try {
-        const response = await axios.post(`${FORECAST_AGENT_URL}/tasks`, {
-          task: task.name,
-          input
-        });
+        const response = await axios.post(`${FORECAST_AGENT_URL}/tasks`, { task: task.name, input });
         return { success: true, data: response.data.result };
       } catch (error: any) {
         return { success: false, error: error.message };
       }
     }
   }));
-  console.log(`${agentCard.name} tools were discovered and registered: ${a2aTools.map((tool: any) => tool.name).join(', ')}`);
+
+  console.log(`${agentCard.name} tools registered: ${a2aTools.map((t: any) => t.name).join(', ')}`);
   return a2aTools;
 }

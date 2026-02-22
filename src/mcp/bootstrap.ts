@@ -1,6 +1,22 @@
 import { MCPClient } from './client.js';
 import { MCPTool, MCPServerConfig } from './types.js';
 
+async function connectWithRetry(client: MCPClient) {
+  const RETRY_ATTEMPTS = 5;
+  const RETRY_DELAY_MS = 2000;
+
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
+    try {
+      await client.connect();
+      return;
+    } catch {
+      if (attempt === RETRY_ATTEMPTS) throw new Error(`MCP server not ready after ${RETRY_ATTEMPTS} attempts`);
+      console.log(`⏳ Waiting for MCP server ... (${attempt}/${RETRY_ATTEMPTS})`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+    }
+  }
+}
+
 export async function initializeMCPClients(
 configs: MCPServerConfig[]): Promise<{
   mcpClients: MCPClient[];
@@ -15,7 +31,7 @@ configs: MCPServerConfig[]): Promise<{
 
   for (const config of configs) {
     const client = new MCPClient(config);
-    await client.connect();
+    await connectWithRetry(client)
     const serverTools = await client.listTools();
 
     mcpClients.push(client);

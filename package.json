@@ -14,7 +14,8 @@
     "bot": "tsx src/interfaces/telegramBot.ts",
     "voice": "tsx src/interfaces/alfred.ts",
     "forecast-agent": "cd ../forecast-agent && npm run dev",
-    "anomaly": "tsx src/services/anomalyService.ts"
+    "anomaly": "tsx src/services/anomalyService.ts",
+    "alfred": "concurrently \"npm run forecast-agent\" \"npm run voice\""
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@aws-sdk/client-s3": "^3.975.0",
+    "@deepgram/sdk": "^4.11.3",
     "@faker-js/faker": "^10.2.0",
     "@google-cloud/text-to-speech": "^6.4.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
