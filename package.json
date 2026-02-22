@@ -12,7 +12,7 @@
     "voice:generate": "npx tsx src/voice/generateVoices.ts",
     "interactive": "tsx src/interfaces/interactive.ts",
     "bot": "tsx src/interfaces/telegramBot.ts",
-    "voice": "tsx src/interfaces/voiceInterface.ts",
+    "voice": "tsx src/interfaces/alfred.ts",
     "forecast-agent": "cd ../forecast-agent && npm run dev",
     "anomaly": "tsx src/services/anomalyService.ts"
   },

@@ -1,6 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { anthropic } from '../config/clients';
-import { CLAUDE } from '../agent/models.js';
 import { SYSTEM_PROMPT, createUserPrompt } from './prompts.js';
 import { tools, getToolByName } from '../tools';
 import { MCPTool } from '../mcp/types.js';
@@ -16,7 +15,8 @@ export class Agent {
   private client: Anthropic;
   private maxIterations = 15;
   private conversationHistories: Map<string, Anthropic.MessageParam[]> = new Map();
-  
+  private totalTokensUsed = 0;
+
   constructor(
     private mcpTools: MCPTool[] = [],
     private mcpClientMap: Map<string, MCPClient> = new Map(),
@@ -31,46 +31,52 @@ export class Agent {
   ): Promise<string> {
     console.log(`\n🤔 Question: ${question}\n`);
   
+    // semantic cache 
     console.log('🔍 Checking cache...');
     const cachedResponse = await getCachedResponse(question);
     if (cachedResponse) {
       return cachedResponse;
     }
-    
+
+    // Route query to Haiku or Sonnet based on complexity analysis
     const model = await routeQuery(question);
     console.log(`🤖 Using model: ${model}\n`);
 
     const formattedTools = this.formatToolsForClaude();
 
     const actualSessionId = sessionId || `session_${Date.now()}`;
-  
+
     let messages = this.conversationHistories.get(actualSessionId) || [];
-    
-    messages = await this.manageContext(messages, formattedTools);
-    
+
+    // count tokens, summarize if approaching limit, mark cache boundary
+    messages = await this.manageContext(messages);
+
     messages.push({ role: 'user', content: createUserPrompt(question) });
-    
+
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
       console.log(`\n--- Iteration ${iteration} ---`);
-  
+
       const response = await this.callLLM(model, messages, formattedTools);
-  
+      this.totalTokensUsed += response.usage.input_tokens + response.usage.output_tokens;
+
       console.log(`Stop reason: ${response.stop_reason}`);
-  
+
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
       );
-  
+
+      // laude has a final answer
       if (toolUseBlocks.length === 0) {
         return await this.handleFinalResponse(response, messages, question, actualSessionId);
       }
-  
+
       console.log(`🔧 Using ${toolUseBlocks.length} tool(s): ${toolUseBlocks.map(b => b.name).join(', ')}`);
-  
+
+      // Execute all tool calls in parallel
       const toolResults = await Promise.all(
         toolUseBlocks.map(block => this.executeTool(block))
       );
-  
+
       messages.push({ role: 'assistant', content: response.content });
       messages.push({
         role: 'user',
@@ -80,11 +86,11 @@ export class Agent {
           content: JSON.stringify(result),
         })),
       });
-  
+
       const failureMessage = this.checkToolFailures(toolResults, response.stop_reason);
       if (failureMessage) return failureMessage;
     }
-  
+
     return `Max iterations (${this.maxIterations}) reached without final answer`;
   }
 
@@ -143,22 +149,14 @@ export class Agent {
     );
   }
 
-  private async manageContext(messages: Anthropic.MessageParam[], formattedTools: any[]) {
+  private async manageContext(messages: Anthropic.MessageParam[]) {
     if (messages.length === 0) return messages;
-    
-    if (messages.length < 10) return this.markHistoryCacheBoundary(messages);
-
-    const { input_tokens } = await this.client.messages.countTokens({
-      model: CLAUDE.Haiku,
-      system: SYSTEM_PROMPT,
-      messages,
-      tools: formattedTools
-    });
   
-    if (input_tokens > 170000) {
-      console.log(`📊 Token limit approaching (${input_tokens} tokens), summarizing...`);
+    if (this.totalTokensUsed > 170000) {
+      console.log(`📊 Token limit approaching (${this.totalTokensUsed} tokens), summarizing...`);
       const midpoint = Math.floor(messages.length / 2);
       const summary = await summarizeHistory(messages.slice(0, midpoint));
+      this.totalTokensUsed = 0;
       messages = [
         { role: 'user', content: `Previous conversation summary: ${summary}` },
         ...messages.slice(midpoint)
@@ -203,7 +201,7 @@ export class Agent {
         
         const breaker = getCircuitBreaker(toolUseBlock.name, 
           (name: string, input: any) => client.callTool(name, input)
-        );
+        );// MCP tool — network call, retry with exponential backoff
         const result = await breaker.fire(toolUseBlock.name, toolUseBlock.input);
         console.log(`  ← ${toolUseBlock.name} (MCP): ✅ Success`);
         return { tool_use_id: toolUseBlock.id, result: { success: true, data: result } };
@@ -213,6 +211,7 @@ export class Agent {
       }
     }
 
+    // A2A tool — network call, retry with exponential backoff
     const a2aTool = this.a2aTools.find(t => t.name === toolUseBlock.name);
     if (a2aTool) {
       try {

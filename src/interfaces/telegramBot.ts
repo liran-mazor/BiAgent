@@ -69,7 +69,7 @@ async function startBot() {
       
       const file = await bot.getFile(voiceFileId);
       const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
-      const localPath = path.join('temp', `voice_${Date.now()}.ogg`);
+      const localPath = path.join(process.cwd(), 'src/temp/telegram', `voice_${Date.now()}.ogg`);
       
       await downloadFile(fileUrl, localPath); 
       

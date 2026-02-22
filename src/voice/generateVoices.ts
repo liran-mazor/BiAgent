@@ -21,15 +21,16 @@ async function generateSound(text: string, filename: string) {
 
   const [response] = await client.synthesizeSpeech(request);
   
-  const audioPath = path.join(__dirname, `../voice/${filename}`);
+  const audioPath = path.join(__dirname, `../voice/audio/${filename}`);
   fs.writeFileSync(audioPath, response.audioContent, 'binary');
   
   console.log(`✅ Saved ${filename}`);
 }
 
 async function main() {
-  await generateSound("yeah?", "confirmation.mp3");
-  await generateSound("On it!", "ack.mp3");
+  await generateSound("yeah?", "wakeWordConfirmed.mp3");
+  await generateSound("On it!", "processing.mp3");
+  await generateSound("OK!", "cancelled.mp3");
   console.log('\n✅ Voice assets generated!');
 }
 

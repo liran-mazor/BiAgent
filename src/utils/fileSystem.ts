@@ -3,15 +3,17 @@ import fs from "node:fs";
 import https from "node:https";
 
 export const initializeTempDirectory = () => {
-  const tempDir = path.join(process.cwd(), 'temp');
-  
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-    console.log('📁 Created temp directory');
-  } else {
-    const oldFiles = fs.readdirSync(tempDir);
-    oldFiles.forEach(file => fs.unlinkSync(path.join(tempDir, file)));
-  }
+  const alfredTemp = path.join(process.cwd(), 'src/temp/alfred');
+  const telegramTemp = path.join(process.cwd(), 'src/temp/telegram');
+
+  [alfredTemp, telegramTemp].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`📁 Created ${dir}`);
+    } else {
+      fs.readdirSync(dir).forEach(file => fs.unlinkSync(path.join(dir, file)));
+    }
+  });
 };
 
 export const getLatestChart = async () => {

@@ -27,8 +27,14 @@ export function playSound(soundPath: string): Promise<void> {
 export async function speakText(text: string): Promise<void> {
   console.log('🔊 Converting text to speech...');
 
+  const clean = text
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/#{1,6} /g, '')
+    .replace(/`/g, '');
+
   const request = {
-    input: { text },
+    input: { text: clean },
     voice: {
       languageCode: 'en-GB',
       name: 'en-GB-Standard-D',
@@ -45,7 +51,7 @@ export async function speakText(text: string): Promise<void> {
 }
 
 export async function recordUserQuery(): Promise<string> {
-  console.log('🎙️  Recording your question (8 seconds)...');
+  console.log('🎙️  Recording your question (6 seconds)...');
   
   const audioFile = AUDIO_PATHS.TEMP_VOICE_QUERY;
   const file = fs.createWriteStream(audioFile, { encoding: 'binary' });
@@ -58,7 +64,7 @@ export async function recordUserQuery(): Promise<string> {
   });
 
   recording.stream().pipe(file);
-  await new Promise(resolve => setTimeout(resolve, 8000));
+  await new Promise(resolve => setTimeout(resolve, 6000));
   recording.stop();
   
   console.log('✅ Recording saved');
@@ -73,5 +79,12 @@ export async function transcribeAudio(audioFilePath: string): Promise<string> {
     file: fs.createReadStream(audioFilePath),
     model: 'whisper-1',
   });
-  return `[VOICE_INTERFACE] ${transcription.text}`;
+  console.log(transcription.text);
+  return transcription.text;
 }
+
+export function isCancelCommand(query: string): boolean {
+  const normalized = query.toLowerCase().trim().replace(/[.,!?]$/, '');
+  return normalized === 'stop';
+}
+

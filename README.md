@@ -65,12 +65,13 @@ An AI agent that autonomously answers business questions by intelligently select
                 │                 │
                 └────────┬────────┘
                          ▼
-           ┌───────────────────────────┐
-           │  BiAgent - ReAct Core     │
-           │ • Conversation Memory     │
-           │ • Prompt Caching (3/4)    │
-           │ • Parallel Tool Execution │
-           └───────────────────────────┘
+         ┌─────────────────────────────────┐
+         │      BiAgent - ReAct Core       │
+         │ • Conversation Memory           │
+         │ • Prompt Caching (3/4 slots)    │
+         │ • Parallel Tool Execution       │
+         │ • Token-based Summarization     │
+         └─────────────────────────────────┘
                          │
        ┌─────────────────┼──────────────────┐
        │                 │                  │
