@@ -1,6 +1,6 @@
 # BiAgent - Autonomous Business Intelligence Agent
 
-> **D⚠️ emo project** for agentic AI engineering interviews. Built from scratch — no LangChain, no frameworks.
+> **⚠️ Demo project** for agentic AI engineering interviews. Built from scratch — no LangChain, no frameworks.
 
 An AI agent that autonomously answers business questions by reasoning through problems and selecting the right tools — using the ReAct (Reasoning + Acting) pattern.
 
