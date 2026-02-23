@@ -15,7 +15,7 @@
     "voice": "tsx src/interfaces/alfred.ts",
     "forecast-agent": "cd ../forecast-agent && npm run dev",
     "anomaly": "tsx src/services/anomalyService.ts",
-    "alfred": "concurrently \"npm run forecast-agent\" \"npm run voice\""
+    "alfred": "concurrently --names \"FORECAST,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run forecast-agent\" \"npm run voice\""
   },
   "keywords": [],
   "author": "",

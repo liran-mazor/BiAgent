@@ -1,34 +1,60 @@
-cat > README.md << 'EOF'
 # BiAgent - Autonomous Business Intelligence Agent
 
-> **⚠️ Demo Project**: Technical demonstration showcasing agentic AI engineering for interviews.
+> **D⚠️ emo project** for agentic AI engineering interviews. Built from scratch — no LangChain, no frameworks.
 
-An AI agent that autonomously answers business questions by intelligently selecting and using multiple tools through a ReAct (Reasoning + Acting) pattern.
-
-## Key Features
-
-- **🎯 Intelligent Cost Optimization**: Haiku routes queries to itself (simple) or Sonnet (complex) - 70% cost reduction
-- **🔌 MCP Protocol Integration**: Agent connects to external MCP servers for tool discovery
-- **🧠 Conversation Memory**: Maintains context across questions ("What was our revenue?" → "And last month?")
-- **⚡ Production Optimizations**: Semantic caching (pgvector), prompt caching, parallel tool execution
-- **☁️ Cloud Storage**: Charts automatically uploaded to AWS S3 with shareable URLs
-- **🎤 Voice Interface**: Telegram bot with OpenAI Whisper transcription
-- **👥 Team Role Resolution**: Mention "team leader" or "VP" - automatically resolves to correct email
+An AI agent that autonomously answers business questions by reasoning through problems and selecting the right tools — using the ReAct (Reasoning + Acting) pattern.
 
 ## Tech Stack
 
-- **LLM**: Claude Sonnet 4 + Haiku 3.5 (two-tier architecture)
-- **Control Pattern**: ReAct (Reasoning + Acting) - raw implementation, no frameworks
-- **Database**: PostgreSQL + pgvector (Docker)
-- **Cloud**: AWS S3 for chart storage
-- **Language**: TypeScript + Node.js
-- **Protocol**: Model Context Protocol (MCP) for tool integration
-- **5 Native Tools**: Chart (Chart.js), Web Search (Tavily), Email, Calculator (Math.js)
-- **1 MCP Tool**: SQL queries via standalone MCP server
+**Core:** Node.js · TypeScript · Claude Sonnet 4 + Haiku 4.5 · PostgreSQL + pgvector  
+**Protocols:** Model Context Protocol · Agent-to-Agent Protocol
+**Voice:** Picovoice Porcupine · Deepgram STT · Google Cloud TTS  
+**Infra:** Docker · AWS S3 · LangSmith · Telegram Bot API
+
+---
+
+## Six Engineering Phases
+
+**Phase 1 — Performance:** Semantic caching (pgvector + embeddings) and parallel tool execution.
+
+**Phase 2 — MCP Integration:** Standalone MCP server exposes SQL tool via STDIO. Agent acts as MCP client with dynamic tool discovery at startup.
+
+**Phase 3 — Router:** Haiku routes queries to itself (simple) or Sonnet (complex).
+
+**Phase 4 — A2A Multi-Agent Architecture:** Standalone ForecastAgent with Agent Card. BiAgent discovers and registers tools dynamically — zero hardcoding. Three-tier tool resolution: Native → MCP (STDIO) → A2A (HTTP).
+
+**Phase 5 — Context Engineering + Prompt Caching:** Multi-layer prompt caching (3/4 slots). Token-aware history summarization. Circuit breaker with opossum for MCP/A2A resilience.
+
+**Phase 6 — Observability:** LangSmith tracing wrapped at the client level — zero agent code changes. Daily anomaly detection where Haiku analyzes traces and emails the team. Containerized as a Docker cron job.
+
+---
+
+## Tools (4 Native + 1 MCP + 1 A2A)
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `query_database` | MCP (STDIO) | PostgreSQL queries via standalone MCP server |
+| `forecast_revenue` | A2A (HTTP) | Revenue forecasting via standalone ForecastAgent |
+| `chart` | Native | Chart.js visualization + AWS S3 upload |
+| `web_search` | Native | Tavily API for benchmarks and market data |
+| `email` | Native | Nodemailer with role resolution (team_leader, vp) |
+| `calculator` | Native | Math.js for growth rates and statistics |
+
+---
+
+## 4 Interfaces
+
+- **CLI** — `npm start "query"`
+- **Interactive CLI** — `npm run interactive`
+- **Telegram Bot** — text + voice messages: `npm run bot`
+- **Alfred** — wake word voice assistant: `npm run voice`
+
+Alfred uses Picovoice for wake word detection, Deepgram for streaming STT with automatic voice activity detection, and Google Cloud TTS for British-voiced responses.
 
 ---
 
 ## System Architecture
+
 ```
    ┌───────────────────────────────────────────────┐
    │               User Interfaces                 │
@@ -89,140 +115,31 @@ An AI agent that autonomously answers business questions by intelligently select
 │       +       │ └────────────────┘ │ • Email         │
 │  PostgreSQL   │                    │ • Calculator    │
 └───────────────┘                    └─────────────────┘
-
-```
-
-## Three Optimization Phases
-
-### Phase 1: Performance Engineering
-- **Semantic Caching**: pgvector + OpenAI embeddings (60% hit rate)
-- **Prompt Caching**: 90% discount on system prompt (Anthropic ephemeral cache)
-- **Parallel Tool Execution**: Promise.all() for 40-50% latency reduction
-- **Context Window Management**: Sliding window for unlimited conversations
-
-### Phase 2: Protocol-Level Architecture
-- **MCP Integration**: Standalone MCP server exposes SQL tool
-- **Hybrid Tools**: Native (chart, email, calculator, search) + MCP (SQL)
-- **Tool Discovery**: Agent dynamically discovers tools from MCP servers at startup
-- **Reusability**: SQL tool works across Claude Desktop, Cursor, VS Code
-
-### Phase 3: Intelligent Cost Optimization ⭐
-- **Two-Tier Architecture**: Haiku routes to itself (simple) or Sonnet (complex)
-- **Self-Adapting**: Haiku reasons about complexity using actual tool definitions
-- **Cost Reduction**: 70% savings on typical workload
-- **Zero Maintenance**: Add new tools → Haiku adapts automatically
-
----
-
-## Example Workflows
-
-### Simple Query (Routed to Haiku)
-```bash
-npm start "How many orders today?"
-```
-**Agent:** Haiku executes SQL query → 40 orders
-
-### Complex Query (Routed to Sonnet)
-```bash
-npm start "Compare our AOV to German e-commerce industry, create chart, email to team leader"
-```
-
-**Agent autonomously executes:**
-1. **Router**: Haiku analyzes → "COMPLEX" → Use Sonnet
-2. **SQL (MCP)**: Query for our AOV → $3,262
-3. **Web Search (Native)**: German benchmark → €120
-4. **Chart (Native)**: Generate visualization with gradients
-5. **S3 Upload**: Chart URL → `https://s3.amazonaws.com/...`
-6. **Email (Native)**: Send to team leader with chart
-
-⏱️ **Time: ~30 seconds** (vs 15-20 minutes manually)
-
-### Voice + Telegram
-Send voice message: *"What's our revenue this week? Show me a chart."*
-
-Agent:
-- Transcribes via Whisper
-- Routes to appropriate model
-- Executes SQL + chart tools
-- Responds with S3-hosted visualization
-
----
-
-## With vs Without Agent
-
-**Without BiAgent** (Manual):
-1. Open database client
-2. Ask ChatGPT for SQL query
-3. Run query, get results
-4. Google search for industry benchmarks
-5. Create chart in spreadsheet tool
-6. Export chart as PNG
-7. Compose and send email
-
-⏱️ **15-20 minutes**
-
-**With BiAgent** (Autonomous):
-```bash
-npm start "Compare our AOV to Germany industry, create chart, email to team leader"
-```
-⏱️ **30 seconds** - Agent handles all 7 steps autonomously
-
----
-
-## Architecture Highlights
-
-### Intelligent Routing
-```
-User Query → Haiku Analyzes → Routes to:
-├─ Haiku (85% of queries)   → $0.003 per query
-└─ Sonnet (15% of queries)  → $0.015 per query
-
-Average cost: ~$0.005 per query (vs $0.015 without routing)
-Cost reduction: 70%
-```
-
-### ReAct Loop
-```
-1. Check semantic cache → Hit? Return immediately
-2. Route query → Haiku/Sonnet decision
-3. Call LLM with tools (native + MCP)
-4. Tool use? → Execute in parallel → Loop
-5. Final answer? → Cache response → Return
 ```
 
 ---
 
 ## Quick Start
+
 ```bash
-# Setup database
+# Infrastructure
 docker-compose up -d
-docker exec -i agentiq-db psql -U agentiq -d agentiq < src/database/schema.sql
-npm run seed
+npm run init-db && npm run seed
 
-# Run agent (MCP server starts automatically)
-npm start "How many orders today?"           # Simple → Haiku
-npm start "Revenue chart for team leader"    # Complex → Sonnet
+# Start ForecastAgent (required for A2A)
+cd forecast-agent && npm run dev
 
-# Interactive mode
+# Run BiAgent
+npm start "What's our revenue this month?"
 npm run interactive
-
-# Telegram bot
 npm run bot
+npm run voice
+
+# Observability
+npm run anomaly                          # Manual anomaly check
+docker-compose up -d anomaly-cron        # Daily cron container
 ```
----
-
-## Future Enhancements (Discussion Points)
-
-- **Redis** for distributed conversation memory
-- **LangGraph** for multi-agent orchestration  
-- **HTTP Transport** for production MCP deployments
-- **Opus Tier** for super-complex queries (three-tier routing)
-- **Routing Metrics** dashboard (accuracy, cost tracking)
-- **Human-in-the-Loop** checkpoints for sensitive operations
-- **Streaming Responses** for real-time UX
 
 ---
 
-**Built for:** Agentic AI engineering interviews  
-**Demonstrates:** Autonomous agents, protocol integration, cost optimization, production engineering
-EOF
+**Built by:** Liran Mazor · **Purpose:** Agentic AI engineering interviews
