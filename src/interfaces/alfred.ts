@@ -6,7 +6,7 @@ import { initializeA2ATools } from '../a2a/forecastClient';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
 import { AUDIO_PATHS } from '../voice/audioPaths';
-import { playSound, speakText, transcribeAudio, recordUserQuery, isCancelCommand } from '../services/voiceService';
+import { playSound, speakText, isCancelCommand, recordAndTranscribe } from '../services/voiceService';
 import { initializeTempDirectory } from '../utils/fileSystem';
 
 initializeTempDirectory();
@@ -42,9 +42,7 @@ async function startVoiceInterface() {
       recorder.stop();
       await playSound(AUDIO_PATHS.WAKE_WORD_CONFIRMED);
       
-      const audioFile = await recordUserQuery();
-      const rawQuery = await transcribeAudio(audioFile);
-    
+      const rawQuery = await recordAndTranscribe();
       if (isCancelCommand(rawQuery)) {
         await playSound(AUDIO_PATHS.CANCELLED);
         recorder.start();
