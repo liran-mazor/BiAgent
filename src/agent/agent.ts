@@ -245,6 +245,7 @@ export class Agent {
   
     const finalResponse = textBlock?.text || 'No response generated';
     await cacheResponse(question, finalResponse);
+    console.log(finalResponse);
     return finalResponse;
   }
   

@@ -22,6 +22,7 @@ Autonomous BI Agent demonstrating ReAct pattern with **MCP protocol integration*
 - **Autonomous Multi-Tool Chains**: MCP SQL → A2A Forecast → Native Chart → Native Email in single query
 - **Role-Based Email**: "team_leader" → resolves to actual email from config
 - **Full Observability**: LangSmith tracing on all LLM calls + daily anomaly detection via Haiku
+- **Chart Display on Touchscreen**: Alfred displays S3 chart overlay on 7" RPi screen while speaking
 
 ### Tool Architecture (4 Native + 1 MCP + 1 A2A)
 
@@ -48,7 +49,7 @@ Autonomous BI Agent demonstrating ReAct pattern with **MCP protocol integration*
   - Custom trained wake word: "Alfred"
   - Sensitivity: 0.9 for responsive detection
   - Custom .ppn model file stored in `src/voice/audio/alfred.ppn`
-- **Audio Recording:** `node-record-lpcm16` with Sox backend (6-second clips, 16kHz mono WAV)
+- **Audio Recording:** `node-record-lpcm16` with Sox backend (7-second clips, 16kHz mono WAV)
 - **Speech-to-Text:** OpenAI Whisper API (`whisper-1` model)
 - **Text-to-Speech:** Google Cloud TTS (`@google-cloud/text-to-speech`)
   - Voice: `en-GB-Neural2-B` (British male narrator)
@@ -57,15 +58,24 @@ Autonomous BI Agent demonstrating ReAct pattern with **MCP protocol integration*
     - `ack.mp3`: "On it" (processing acknowledgment)
 - **Audio Playback:** `play-sound` library with 150ms buffer delay to prevent audio clipping
 - **Audio Timing:** 400ms delay after stopping recorder before playing confirmation (prevents resource conflicts)
-- **Cancel command:** Saying "לא משנה" after wake word returns Alfred to listening state
+- **Cancel command:** Saying "stop" after wake word returns Alfred to listening state
 
 **Alfred Flow:**
 1. Wake word detected ("Alfred") → Stop recorder
-2. Play "All ears" confirmation → Record 6 seconds
+2. Play "All ears" confirmation → Record 7 seconds
 3. Play "On it" → Whisper transcription
-4. If "לא משנה" → restart listening loop
+4. If "stop" → restart listening loop
 5. Agent processing with [VOICE_INTERFACE] prefix (triggers 1-2 sentence responses)
 6. TTS response with Google Cloud TTS → Play audio
+7. If chart was generated → display S3 chart as overlay on touchscreen while speaking
+
+**Alfred Chart Display:**
+- `chartTool.ts` stores last S3 URL in module-level `lastChartUrl`
+- `alfred.ts` calls `getLastChartUrl()` then immediately `clearLastChartUrl()` after each query
+- `faceService.ts` `sendChart(url)` sends `{ type: 'chart', url }` via WebSocket to face.html
+- Chart overlay appears **before** `play()` so it's visible as Alfred begins speaking
+- ✕ button dismisses overlay and returns face to idle state
+- RPi-specific lip sync delays: 950ms for both `sendQuickMouth` and `sendSpeaking`
 
 ---
 
@@ -209,14 +219,14 @@ const CIRCUIT_BREAKER_OPTIONS = {
 - `src/config/clients.ts` — shared Anthropic + OpenAI singletons (wrapped with LangSmith)
 - `routeQuery()` returns model string directly (not complexity string)
 - Telegram bot handlers moved inside `startBot()` — agent is `const`
-- Alfred cancel: "לא משנה" → `continue` back to wake word listening
+- Alfred cancel: "stop" → `continue` back to wake word listening
 - `import 'dotenv/config'` consistently across all entry points
 - MCP tools initialized with `initializeMCPClients()`, A2A with `initializeA2ATools()` — consistent naming
 - All prompts consolidated in `src/agent/prompts.ts`
 
 ---
 
-### Phase 6: Observability & Anomaly Detection - COMPLETED ✅
+### Phase 6: Observability, Anomaly Detection & Chart Display - COMPLETED ✅
 
 #### 1. LangSmith Tracing
 - Wrapped both Anthropic and OpenAI clients with LangSmith SDK (`wrapSDK`, `wrapOpenAI`)
@@ -271,6 +281,17 @@ anomaly-cron:
 npm run anomaly
 ```
 
+#### 4. Chart Display on Alfred Touchscreen ⭐
+- When Alfred generates a chart, it displays as a fullscreen overlay on the 7" RPi touchscreen **while speaking**
+- `chartTool.ts` stores last S3 URL in module-level `lastChartUrl` variable
+- `getLastChartUrl()` + `clearLastChartUrl()` exports prevent stale chart from persisting across queries
+- `faceService.ts` `sendChart(url)` sends via WebSocket to face.html
+- `face.html` renders image overlay with ✕ dismiss button
+- Chart sent **before** `play()` — visible as Alfred begins speaking the response
+- RPi-specific timing: 950ms delay on both quickmouth animations and final response lip sync
+
+**Key design decision:** Read chart URL from module state (`lastChartUrl`) rather than parsing agent response text — voice responses are intentionally short and never contain S3 URLs.
+
 ---
 
 ## Architecture Essentials
@@ -311,7 +332,7 @@ biagent/
 │   │   ├── index.ts              # CLI
 │   │   ├── interactive.ts        # Interactive CLI
 │   │   ├── telegramBot.ts        # Telegram bot
-│   │   └── voiceInterface.ts     # Alfred wake word loop
+│   │   └── alfred.ts             # Alfred wake word loop + chart display
 │   ├── mcp/
 │   │   ├── bootstrap.ts          # initializeMCPClients()
 │   │   ├── client.ts             # MCPClient class
@@ -321,12 +342,13 @@ biagent/
 │   │   ├── anomalyService.ts     # LangSmith trace fetch + Haiku analysis + email
 │   │   ├── cacheService.ts       # Semantic cache + pgvector pool
 │   │   ├── embeddingService.ts   # OpenAI embeddings
+│   │   ├── faceService.ts        # WebSocket server (port 3002) + sendChart()
 │   │   ├── routerService.ts      # Haiku router → model string
 │   │   ├── summaryService.ts     # Haiku history summarization
 │   │   └── s3Service.ts          # AWS S3 upload
 │   ├── tools/
 │   │   ├── calculatorTool.ts
-│   │   ├── chartTool.ts
+│   │   ├── chartTool.ts          # lastChartUrl + getLastChartUrl/clearLastChartUrl
 │   │   ├── emailTool.ts
 │   │   ├── webSearchTool.ts
 │   │   ├── index.ts
@@ -342,6 +364,7 @@ biagent/
 │       │   ├── confirmation.mp3
 │       │   └── ack.mp3
 │       ├── audioPaths.ts
+│       ├── face.html             # Animated face + chart overlay
 │       └── temp/
 ├── schema.sql
 ├── docker-compose.yml
@@ -373,8 +396,8 @@ forecast-agent/
 > **Phase 5 - Context Engineering + Production Hardening:**
 > Multi-layer prompt caching (3/4 slots). Token-aware history summarization replacing arbitrary sliding window. Circuit breaker with opossum for MCP/A2A resilience. Clean agent architecture with single-responsibility private methods.
 >
-> **Phase 6 - Observability & Anomaly Detection:**
-> LangSmith tracing wrapped at the client level — zero agent code changes. Daily anomaly detection where Haiku analyzes Langsmith traces and emails the team leader. Containerized as a Docker cron job, fully decoupled from the main agent."
+> **Phase 6 - Observability, Anomaly Detection & Multimodal Output:**
+> LangSmith tracing wrapped at the client level — zero agent code changes. Daily anomaly detection where Haiku analyzes LangSmith traces and emails the team leader. Containerized as a Docker cron job. Alfred voice assistant deployed on Raspberry Pi 4 with 7" touchscreen — when the agent generates a chart, it's displayed as an overlay on the physical screen while Alfred speaks the answer, with lip-synced mouth animation."
 
 ---
 
@@ -408,7 +431,7 @@ npm run daily-seed
 
 ---
 
-**Last Updated:** February 2026 (Phase 6: Observability & Anomaly Detection)
-**Status:** Production-optimized with MCP, A2A, intelligent routing, multi-modal voice, context engineering, circuit breaker resilience, LangSmith observability, and AI-powered anomaly detection
+**Last Updated:** February 2026 (Phase 6: Observability, Anomaly Detection & Chart Display on RPi touchscreen)
+**Status:** Production-optimized with MCP, A2A, intelligent routing, multi-modal voice, context engineering, circuit breaker resilience, LangSmith observability, AI-powered anomaly detection, and physical chart display on Raspberry Pi touchscreen
 **Maintainer:** Liran Mazor
 **Purpose:** Technical demonstration for agentic AI engineering interviews

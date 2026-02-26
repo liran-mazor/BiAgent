@@ -6,6 +6,10 @@ import { z } from 'zod';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { uploadChartToS3 } from '../services/s3Service';
 
+let lastChartUrl: string | null = null;
+export function getLastChartUrl() { return lastChartUrl; }
+export function clearLastChartUrl() { lastChartUrl = null; }
+
 export const ChartToolParams = z.object({
   type: z.enum(['bar', 'line', 'pie']).describe('Chart type'),
   data: z.array(z.object({
@@ -267,6 +271,7 @@ export const chartTool: Tool = {
       
       // Upload to S3
       const chartUrl = await uploadChartToS3(filepath);
+      lastChartUrl = chartUrl;
 
       return {
         success: true,

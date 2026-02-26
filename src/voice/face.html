@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="face" width="800" height="480"></canvas>
+
+  <script>
+    const canvas = document.getElementById('face');
+    const ctx = canvas.getContext('2d');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let state = urlParams.get('state') || 'idle';
+
+    let mouthOpen = 0;
+    let blinkProgress = 0;
+    let isBlinking = false;
+
+    // Breathing (idle)
+    let breathAngle = 0;
+
+    // Thinking pupil dart
+    let pupilOffsetX = 0;
+    let pupilOffsetY = 0;
+    let thinkStep = 0;
+    let thinkTimer = 0;
+    const THINK_HOLD = 60;
+    const thinkTargets = [
+      { x: -14, y: 4 },
+      { x: 14,  y: 4 },
+      { x: 0,   y: -12 },
+    ];
+
+    // Speaking pupil drift
+    let speakDriftX = 0;
+    let speakDriftY = 0;
+    let speakDriftAngle = 0;
+
+    const zzzItems = [
+      { x: 520, y: 150, size: 18, alpha: 0, phase: 0 },
+      { x: 550, y: 120, size: 24, alpha: 0, phase: 1.5 },
+      { x: 585, y: 88,  size: 30, alpha: 0, phase: 3.0 },
+    ];
+    let zzzAngle = 0;
+
+    const CX = 400, CY = 240;
+    const EYE_Y = CY - 50;
+    const EYE_OFFSET = 110;
+    const EYE_RX = 48;
+    const EYE_RY = 34;
+    const MOUTH_Y = CY + 90;
+    const MOUTH_W = 90;
+
+    function getPupilScale() {
+      // listening: dilated pupils (bigger)
+      if (state === 'listening') return 1.25;
+      return 1.0;
+    }
+
+    function drawEye(cx, cy, eyeLid, pOffsetX, pOffsetY) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, EYE_RX, EYE_RY, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#e0e0e0';
+      ctx.fill();
+
+      const pScale = getPupilScale();
+      ctx.beginPath();
+      ctx.ellipse(pOffsetX, pOffsetY, EYE_RX * 0.38 * pScale, EYE_RY * 0.55 * pScale, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#111';
+      ctx.fill();
+
+      const lidHeight = eyeLid * EYE_RY * 2;
+      ctx.beginPath();
+      ctx.rect(-EYE_RX - 2, -EYE_RY - 2, (EYE_RX + 2) * 2, lidHeight);
+      ctx.fillStyle = '#111';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, EYE_RX, EYE_RY, 0, Math.PI, 0);
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, EYE_RX, EYE_RY, 0, 0, Math.PI);
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawEyebrows() {
+      if (state !== 'listening') return;
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+
+      const leftX = CX - EYE_OFFSET;
+      ctx.beginPath();
+      ctx.moveTo(leftX - EYE_RX, EYE_Y - EYE_RY - 22);
+      ctx.quadraticCurveTo(leftX, EYE_Y - EYE_RY - 36, leftX + EYE_RX, EYE_Y - EYE_RY - 22);
+      ctx.stroke();
+
+      const rightX = CX + EYE_OFFSET;
+      ctx.beginPath();
+      ctx.moveTo(rightX - EYE_RX, EYE_Y - EYE_RY - 22);
+      ctx.quadraticCurveTo(rightX, EYE_Y - EYE_RY - 36, rightX + EYE_RX, EYE_Y - EYE_RY - 22);
+      ctx.stroke();
+    }
+
+    function getEyeLid() {
+      if (state === 'idle')       return 0.55 + (isBlinking ? blinkProgress * 0.45 : 0);
+      if (state === 'thinking')   return 0.2  + (isBlinking ? blinkProgress * 0.8  : 0);
+      if (state === 'processing') return 0.15 + (isBlinking ? blinkProgress * 0.85 : 0);
+      if (isBlinking)             return blinkProgress;
+      return 0;
+    }
+
+    function getPupilOffset() {
+      if (state === 'thinking') return { x: pupilOffsetX, y: pupilOffsetY };
+      if (state === 'speaking') return { x: speakDriftX,  y: speakDriftY  };
+      return { x: 0, y: 0 };
+    }
+
+    function thinkingLoop() {
+      if (state !== 'thinking') { pupilOffsetX = 0; pupilOffsetY = 0; return; }
+      thinkTimer++;
+      if (thinkTimer >= THINK_HOLD) {
+        thinkTimer = 0;
+        thinkStep = (thinkStep + 1) % 3;
+        if (!isBlinking) triggerBlink();
+      }
+      const target = thinkTargets[thinkStep];
+      pupilOffsetX += (target.x - pupilOffsetX) * 0.08;
+      pupilOffsetY += (target.y - pupilOffsetY) * 0.08;
+    }
+
+    function speakingDriftLoop() {
+      if (state !== 'speaking') { speakDriftX = 0; speakDriftY = 0; return; }
+      speakDriftAngle += 0.015;
+      speakDriftX = Math.sin(speakDriftAngle) * 5;
+      speakDriftY = Math.sin(speakDriftAngle * 0.7) * 3;
+    }
+
+    function breathingLoop() {
+      if (state !== 'idle') { breathAngle = 0; return; }
+      breathAngle += 0.012;
+    }
+
+    function getBreathScale() {
+      if (state !== 'idle') return 1;
+      return 1 + Math.sin(breathAngle) * 0.008; // very subtle
+    }
+
+    function drawMouth(openAmount) {
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+
+      if (openAmount < 0.05) {
+        const smileDepth = state === 'thinking' ? 8 : 18;
+        ctx.beginPath();
+        ctx.moveTo(CX - MOUTH_W / 2, MOUTH_Y);
+        ctx.quadraticCurveTo(CX, MOUTH_Y + smileDepth, CX + MOUTH_W / 2, MOUTH_Y);
+        ctx.stroke();
+      } else {
+        const openH = openAmount * 12;
+        ctx.beginPath();
+        ctx.moveTo(CX - MOUTH_W / 2, MOUTH_Y);
+        ctx.bezierCurveTo(CX - MOUTH_W / 4, MOUTH_Y - openH * 0.6, CX + MOUTH_W / 4, MOUTH_Y - openH * 0.6, CX + MOUTH_W / 2, MOUTH_Y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(CX - MOUTH_W / 2, MOUTH_Y);
+        ctx.bezierCurveTo(CX - MOUTH_W / 4, MOUTH_Y + openH, CX + MOUTH_W / 4, MOUTH_Y + openH, CX + MOUTH_W / 2, MOUTH_Y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(CX - MOUTH_W / 2, MOUTH_Y);
+        ctx.bezierCurveTo(CX - MOUTH_W / 4, MOUTH_Y - openH * 0.6, CX + MOUTH_W / 4, MOUTH_Y - openH * 0.6, CX + MOUTH_W / 2, MOUTH_Y);
+        ctx.bezierCurveTo(CX + MOUTH_W / 4, MOUTH_Y + openH, CX - MOUTH_W / 4, MOUTH_Y + openH, CX - MOUTH_W / 2, MOUTH_Y);
+        ctx.fillStyle = '#222';
+        ctx.fill();
+      }
+    }
+
+    function drawZzz() {
+      if (state !== 'idle') return;
+      zzzAngle += 0.02;
+      zzzItems.forEach((z) => {
+        z.alpha = (Math.sin(zzzAngle - z.phase) + 1) / 2;
+        ctx.save();
+        ctx.globalAlpha = z.alpha * 0.7;
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = `bold ${z.size}px monospace`;
+        ctx.fillText('z', z.x, z.y);
+        ctx.restore();
+      });
+    }
+
+    function render() {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, 800, 480);
+
+      ctx.fillStyle = '#333';
+      ctx.font = '16px monospace';
+      ctx.fillText(state.toUpperCase(), 20, 28);
+
+      const breathScale = getBreathScale();
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.scale(breathScale, breathScale);
+      ctx.translate(-CX, -CY);
+
+      const lid = getEyeLid();
+      const { x: px, y: py } = getPupilOffset();
+
+      drawEyebrows();
+      drawEye(CX - EYE_OFFSET, EYE_Y, lid, px, py);
+      drawEye(CX + EYE_OFFSET, EYE_Y, lid, px, py);
+      drawMouth(mouthOpen);
+      drawZzz();
+
+      ctx.restore();
+    }
+
+    function triggerBlink() {
+      isBlinking = true;
+      let t = 0;
+      const blink = setInterval(() => {
+        t += 0.25;
+        blinkProgress = t < 1 ? t : 2 - t;
+        if (t >= 2) {
+          clearInterval(blink);
+          isBlinking = false;
+          blinkProgress = 0;
+        }
+      }, 16);
+    }
+
+    function scheduleBlink() {
+      const delay = state === 'idle' ? 7000 + Math.random() * 4000 : 4000 + Math.random() * 3000;
+      setTimeout(() => {
+        if (state !== 'thinking') triggerBlink();
+        scheduleBlink();
+      }, delay);
+    }
+
+    function quickMouth(durationMs) {
+      let t = 0;
+      const interval = setInterval(() => {
+        t += 50;
+        mouthOpen = Math.sin((t / durationMs) * Math.PI);
+        if (t >= durationMs) { clearInterval(interval); mouthOpen = 0; }
+      }, 50);
+    }
+
+    let speakingInterval = null;
+    function startSpeaking(durationMs, fast = false) {
+      state = 'speaking';
+      let t = 0;
+      const totalSteps = durationMs / 100;
+      const speed = fast ? 0.7 : 0.3;
+      speakingInterval = setInterval(() => {
+        t += speed;
+        mouthOpen = (Math.sin(t) + 1) / 2;
+        if (t > totalSteps) stopSpeaking();
+      }, 100);
+    }
+
+    function stopSpeaking() {
+      if (speakingInterval) clearInterval(speakingInterval);
+      mouthOpen = 0;
+      state = 'idle';
+    }
+
+    if (state === 'speaking')   startSpeaking(5000);
+    if (state === 'listening')  setTimeout(() => quickMouth(600), 500);
+    if (state === 'processing') setTimeout(() => quickMouth(800), 300);
+
+    setInterval(() => {
+      breathingLoop();
+      thinkingLoop();
+      speakingDriftLoop();
+      render();
+    }, 33);
+
+    scheduleBlink();
+
+    function showChart(url) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;';
+    overlay.innerHTML = `
+      <img src="${url}" style="max-width:780px;max-height:420px;object-fit:contain;">
+      <button onclick="this.parentElement.remove();state='idle';" style="margin-top:12px;padding:8px 24px;font-size:18px;cursor:pointer;">✕ Close</button>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+    function connect() {
+      const ws = new WebSocket('ws://localhost:3002');
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'state') {
+          state = msg.value;
+          mouthOpen = 0;
+          if (speakingInterval) { clearInterval(speakingInterval); speakingInterval = null; }
+        }
+        if (msg.type === 'speak')      startSpeaking(msg.duration, msg.fast || false);
+        if (msg.type === 'quickmouth') quickMouth(msg.duration);
+        if (msg.type === 'chart') showChart(msg.url);
+      };
+      ws.onclose = () => setTimeout(connect, 1000);
+    }
+
+    connect();
+  </script>
+</body>
+</html>
