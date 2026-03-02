@@ -27,8 +27,6 @@ configs: MCPServerConfig[]): Promise<{
   const mcpTools: MCPTool[] = [];
   const mcpClientMap = new Map<string, MCPClient>();
 
-  console.log('Initializing MCP clients...');
-
   for (const config of configs) {
     const client = new MCPClient(config);
     await connectWithRetry(client)
@@ -48,7 +46,6 @@ configs: MCPServerConfig[]): Promise<{
 }
 
 export async function cleanupMCPClients(clients: MCPClient[]): Promise<void> {
-  console.log('🧹 Cleaning up MCP clients...');
   for (const client of clients) {
     await client.disconnect();
   }

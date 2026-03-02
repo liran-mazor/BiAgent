@@ -41,7 +41,7 @@ export class MCPClient {
 
     await this.client.connect(transport);
     this.connected = true;
-    console.log('Connected to MCP server');
+    console.log('✅ Connected to MCP server');
   }
 
   async listTools(): Promise<MCPTool[]> {
