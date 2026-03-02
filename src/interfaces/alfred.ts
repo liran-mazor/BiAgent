@@ -5,15 +5,15 @@ import { initializeMCPClients } from '../mcp/bootstrap';
 import { initializeA2ATools } from '../a2a/forecastClient';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
-import { AUDIO_PATHS } from '../voice/audioPaths';
+import { AUDIO_PATHS } from '../alfred/audioPaths';
 import { playSound, transcribeAudio, recordUserQuery, isCancelCommand, prepareSpeech, /*recordAndTranscribe*/ } from '../services/voiceService';
 import { sendState, sendSpeaking, sendListening, sendProcessing, sendChart } from '../services/faceService';
 import { initializeTempDirectory } from '../utils/fileSystem';
 import { clearLastChartUrl, getLastChartUrl } from '../tools/chartTool';
 
-initializeTempDirectory();
-
 const WAKE_WORD_SENSITIVITY = 0.8;
+
+initializeTempDirectory();
 
 async function startVoiceInterface() {
   const { mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);

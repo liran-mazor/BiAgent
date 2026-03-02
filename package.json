@@ -9,7 +9,7 @@
     "seed": "cd ../agentiq-mcp-server && npm run seed",
     "daily-seed": "cd ../agentiq-mcp-server && npm run daily-seed",
     "clear-cache": "cd ../agentiq-mcp-server && npm run clear-cache",
-    "voice:generate": "npx tsx src/voice/generateVoices.ts",
+    "voice:generate": "npx tsx src/alfred/generateVoices.ts",
     "interactive": "tsx src/interfaces/interactive.ts",
     "bot": "tsx src/interfaces/telegramBot.ts",
     "voice": "tsx src/interfaces/alfred.ts",

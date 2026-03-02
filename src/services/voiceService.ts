@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const record = require('node-record-lpcm16');
 const textToSpeech = require('@google-cloud/text-to-speech');
-import { AUDIO_PATHS } from "../voice/audioPaths";
+import { AUDIO_PATHS } from "../alfred/audioPaths";
 import { openai } from '../config/clients';
 // import { createClient } from '@deepgram/sdk';
 // import mic from 'mic';
