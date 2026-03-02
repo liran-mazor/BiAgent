@@ -5,6 +5,7 @@ import { tools, getToolByName } from '../tools';
 import { MCPTool } from '../mcp/types.js';
 import { MCPClient } from '../mcp/client.js';
 import { A2ATool } from '../a2a/types.js';
+import { initializeA2ATools } from '../a2a/forecastClient.js';
 import { routeQuery } from '../services/routerService.js';
 import { getCachedResponse, cacheResponse } from '../services/cacheService';
 import { summarizeHistory } from '../services/summaryService.js';
@@ -17,12 +18,26 @@ export class Agent {
   private conversationHistories: Map<string, Anthropic.MessageParam[]> = new Map();
   private totalTokensUsed = 0;
 
+  private a2aTools: A2ATool[] = [];
+  private a2aInitPromise: Promise<void> | null = null;
+
   constructor(
     private mcpTools: MCPTool[] = [],
     private mcpClientMap: Map<string, MCPClient> = new Map(),
-    private a2aTools: A2ATool[] = []
   ) {
     this.client = anthropic;
+  }
+
+  private initializeA2A(): Promise<void> {
+    if (!this.a2aInitPromise) {
+      this.a2aInitPromise = initializeA2ATools()
+        .then(tools => { this.a2aTools = tools; })
+        .catch(err => {
+          this.a2aInitPromise = null;
+          throw err;
+        });
+    }
+    return this.a2aInitPromise;
   }
 
   public async run(
@@ -30,8 +45,10 @@ export class Agent {
     sessionId?: string
   ): Promise<string> {
     console.log(`\n🤔 Question: ${question}\n`);
-  
-    // semantic cache 
+
+    await this.initializeA2A();
+
+    // semantic cache
     console.log('🔍 Checking cache...');
     const cachedResponse = await getCachedResponse(question);
     if (cachedResponse) {

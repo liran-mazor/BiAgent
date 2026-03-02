@@ -1,20 +1,14 @@
 import { Agent } from '../agent/agent';
 import { mcpServers } from '../mcp/mcpServers';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
-import { initializeA2ATools } from '../a2a/forecastClient';
 
 async function main() {
   const question = process.argv.slice(2).join(' ');
 
   try {
     const { mcpClients, mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
-    const a2aTools = await initializeA2ATools();
 
-    const agent = new Agent(
-      mcpTools,
-      mcpClientMap,
-      a2aTools
-    );
+    const agent = new Agent(mcpTools, mcpClientMap);
 
     const answer = await agent.run(question);
 

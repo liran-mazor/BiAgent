@@ -5,7 +5,6 @@ import OpenAI from 'openai';
 import TelegramBot from 'node-telegram-bot-api';
 import { Agent } from '../agent/agent';
 import { mcpServers } from '../mcp/mcpServers';
-import { initializeA2ATools } from '../a2a/forecastClient';
 import { downloadFile, initializeTempDirectory } from '../utils/fileSystem';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
 
@@ -18,13 +17,8 @@ async function startBot() {
   console.log('🔄 Initializing MCP clients...');
   
   const { mcpClients, mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
-  const a2aTools = await initializeA2ATools();
-  
-  const agent = new Agent(
-    mcpTools,
-    mcpClientMap,
-    a2aTools
-  );
+
+  const agent = new Agent(mcpTools, mcpClientMap);
   
   console.log('✅ Agent initialized');
   console.log('🤖 Telegram bot is running...');

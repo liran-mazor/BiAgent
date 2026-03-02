@@ -2,7 +2,6 @@ require('dotenv').config();
 import { Agent } from '../agent/agent';
 import { mcpServers } from '../mcp/mcpServers';
 import { initializeMCPClients } from '../mcp/bootstrap';
-import { initializeA2ATools } from '../a2a/forecastClient';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
 import { AUDIO_PATHS } from '../alfred/audioPaths';
@@ -17,14 +16,9 @@ initializeTempDirectory();
 
 async function startVoiceInterface() {
   const { mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
-  const a2aTools = await initializeA2ATools();
   let isProcessing = false;
-  
-  const agent = new Agent(
-    mcpTools,
-    mcpClientMap,
-    a2aTools
-  );
+
+  const agent = new Agent(mcpTools, mcpClientMap);
 
   const handle = new Porcupine(
     process.env.PICOVOICE_ACCESS_KEY!,
