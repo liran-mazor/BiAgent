@@ -36,7 +36,7 @@ export class Agent {
     question: string,
     sessionId: string
   ): Promise<string> {
-    console.log(`\n🤔  ${question}\n`);
+    console.log(`\n🤔  Question: ${question}\n`);
 
     await Promise.all([this.initializeMCP(), this.initializeA2A()]);
 
@@ -57,7 +57,7 @@ export class Agent {
     messages.push({ role: 'user', content: createUserPrompt(question, getOpenCircuits()) });
 
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
-      console.log(`\n  [Iteration ${iteration}]`);
+      console.log(`\n  ◈ Iteration ${iteration}`);
       
       const response = await this.callLLM(model, messages, formattedTools);
       
@@ -275,7 +275,7 @@ export class Agent {
   
     const finalResponse = textBlock?.text || 'No response generated';
     await cacheResponse(question, finalResponse);
-    console.log(`\n${'─'.repeat(60)}\n📊  ${finalResponse}\n`);
+    console.log(`\n${'─'.repeat(60)}\n📊  Answer: ${finalResponse}\n`);
     return finalResponse;
   }
   
