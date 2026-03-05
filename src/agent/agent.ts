@@ -6,10 +6,12 @@ import { MCPTool } from '../mcp/types.js';
 import { MCPClient } from '../mcp/client.js';
 import { A2ATool } from '../a2a/types.js';
 import { initializeA2ATools } from '../a2a/forecastClient.js';
+import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap.js';
+import { mcpServers } from '../mcp/mcpServers.js';
 import { routeQuery } from '../services/routerService.js';
 import { getCachedResponse, cacheResponse } from '../services/cacheService';
 import { summarizeHistory } from '../services/summaryService.js';
-import { getCircuitBreaker } from '../utils/circuitBreaker';
+import { getCircuitBreaker, getOpenCircuits } from '../utils/circuitBreaker';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema.js';
 
 export class Agent {
@@ -21,43 +23,30 @@ export class Agent {
   private a2aTools: A2ATool[] = [];
   private a2aInitPromise: Promise<void> | null = null;
 
-  constructor(
-    private mcpTools: MCPTool[] = [],
-    private mcpClientMap: Map<string, MCPClient> = new Map(),
-  ) {
-    this.client = anthropic;
-  }
+  private mcpTools: MCPTool[] = [];
+  private mcpClients: MCPClient[] = [];
+  private mcpClientMap: Map<string, MCPClient> = new Map();
+  private mcpInitPromise: Promise<void> | null = null;
 
-  private initializeA2A(): Promise<void> {
-    if (!this.a2aInitPromise) {
-      this.a2aInitPromise = initializeA2ATools()
-        .then(tools => { this.a2aTools = tools; })
-        .catch(err => {
-          this.a2aInitPromise = null;
-          throw err;
-        });
-    }
-    return this.a2aInitPromise;
+  constructor() {
+    this.client = anthropic;
   }
 
   public async run(
     question: string,
     sessionId?: string
   ): Promise<string> {
-    console.log(`\n🤔 Question: ${question}\n`);
+    console.log(`\n🤔  ${question}\n`);
 
-    await this.initializeA2A();
+    await Promise.all([this.initializeMCP(), this.initializeA2A()]);
 
-    // semantic cache
-    console.log('🔍 Checking cache...');
     const cachedResponse = await getCachedResponse(question);
     if (cachedResponse) {
+      console.log(`\n${'─'.repeat(60)}\n📊  ${cachedResponse}\n`);
       return cachedResponse;
     }
-
-    // Route query to Haiku or Sonnet based on complexity analysis
+  
     const model = await routeQuery(question);
-    console.log(`🤖 Using model: ${model}\n`);
 
     const formattedTools = this.formatToolsForClaude();
 
@@ -68,28 +57,28 @@ export class Agent {
     // count tokens, summarize if approaching limit, mark cache boundary
     messages = await this.manageContext(messages);
 
-    messages.push({ role: 'user', content: createUserPrompt(question) });
+    messages.push({ role: 'user', content: createUserPrompt(question, getOpenCircuits()) });
 
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
-      console.log(`\n--- Iteration ${iteration} ---`);
-
       const response = await this.callLLM(model, messages, formattedTools);
       this.totalTokensUsed += response.usage.input_tokens + response.usage.output_tokens;
-
-      console.log(`Stop reason: ${response.stop_reason}`);
 
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
       );
 
-      // laude has a final answer
+      console.log(`\n  [Iteration ${iteration}]`);
+      console.log(`    Stop reason : ${response.stop_reason}`);
+
+      // Final answer
       if (toolUseBlocks.length === 0) {
         return await this.handleFinalResponse(response, messages, question, actualSessionId);
       }
 
-      console.log(`🔧 Using ${toolUseBlocks.length} tool(s): ${toolUseBlocks.map(b => b.name).join(', ')}`);
-
-      // Execute all tool calls in parallel
+      for (const b of toolUseBlocks) {
+        console.log(`    Tool        : ${b.name}`);
+        console.log(`    Input       : ${JSON.stringify(b.input)}`);
+      }
       const toolResults = await Promise.all(
         toolUseBlocks.map(block => this.executeTool(block))
       );
@@ -131,6 +120,34 @@ export class Agent {
     });
   }
 
+  private initializeMCP(): Promise<void> {
+    if (!this.mcpInitPromise) {
+      this.mcpInitPromise = initializeMCPClients(mcpServers)
+        .then(({ mcpClients, mcpTools, mcpClientMap }) => {
+          this.mcpClients = mcpClients;
+          this.mcpTools = mcpTools;
+          this.mcpClientMap = mcpClientMap;
+        })
+        .catch(err => {
+          this.mcpInitPromise = null;
+          console.warn(`⚠️ MCP tools unavailable: ${err.message}`);
+        });
+    }
+    return this.mcpInitPromise;
+  }
+
+  private initializeA2A(): Promise<void> {
+    if (!this.a2aInitPromise) {
+      this.a2aInitPromise = initializeA2ATools()
+        .then(tools => { this.a2aTools = tools; })
+        .catch(err => {
+          this.a2aInitPromise = null;
+          console.warn(`⚠️ A2A tools unavailable: ${err.message}`);
+        });
+    }
+    return this.a2aInitPromise;
+  }
+
   private formatToolsForClaude() {
     const nativeTools = tools.map(tool => {
       const shape = (tool.parameters as any)._def.shape;
@@ -170,7 +187,7 @@ export class Agent {
     if (messages.length === 0) return messages;
   
     if (this.totalTokensUsed > 170000) {
-      console.log(`📊 Token limit approaching (${this.totalTokensUsed} tokens), summarizing...`);
+      console.log(`\n📊 Token limit approaching (${this.totalTokensUsed} tokens), summarizing...\n`);
       const midpoint = Math.floor(messages.length / 2);
       const summary = await summarizeHistory(messages.slice(0, midpoint));
       this.totalTokensUsed = 0;
@@ -199,13 +216,12 @@ export class Agent {
   }
 
   private async executeTool(toolUseBlock: Anthropic.ToolUseBlock): Promise<{ tool_use_id: string; result: any }> {
-    console.log(`  → ${toolUseBlock.name}:`, JSON.stringify(toolUseBlock.input, null, 2));
   
     // Native tool — in-process, no retry needed
     const nativeTool = getToolByName(toolUseBlock.name);
     if (nativeTool) {
       const result = await nativeTool.execute(toolUseBlock.input);
-      console.log(`  ← ${toolUseBlock.name} (native):`, result.success ? '✅ Success' : '❌ Failed');
+      if (!result.success) console.log(`    ❌  ${toolUseBlock.name}  ${result.error}`);
       return { tool_use_id: toolUseBlock.id, result };
     }
   
@@ -216,14 +232,13 @@ export class Agent {
         const client = this.mcpClientMap.get(toolUseBlock.name);
         if (!client) throw new Error(`No MCP client found for tool: ${toolUseBlock.name}`);
         
-        const breaker = getCircuitBreaker(toolUseBlock.name, 
-          (name: string, input: any) => client.callTool(name, input)
-        );// MCP tool — network call, retry with exponential backoff
-        const result = await breaker.fire(toolUseBlock.name, toolUseBlock.input);
-        console.log(`  ← ${toolUseBlock.name} (MCP): ✅ Success`);
+        const breaker = getCircuitBreaker(toolUseBlock.name,
+          (input: any) => client.callTool(toolUseBlock.name, input)
+        );
+        const result = await breaker.fire(toolUseBlock.input);
         return { tool_use_id: toolUseBlock.id, result: { success: true, data: result } };
       } catch (error: any) {
-        console.log(`  ← ${toolUseBlock.name} (MCP): ❌ Failed`);
+        console.log(`    ❌  ${toolUseBlock.name}  ${error.message}`);
         return { tool_use_id: toolUseBlock.id, result: { success: false, error: error.message } };
       }
     }
@@ -236,10 +251,9 @@ export class Agent {
           (input: any) => a2aTool.execute(input)
         );
         const result = await breaker.fire(toolUseBlock.input);
-        console.log(`  ← ${toolUseBlock.name} (A2A): ✅ Success`);
         return { tool_use_id: toolUseBlock.id, result };
       } catch (error: any) {
-        console.log(`  ← ${toolUseBlock.name} (A2A): ❌ Failed`);
+        console.log(`    ❌  ${toolUseBlock.name}  ${error.message}`);
         return { tool_use_id: toolUseBlock.id, result: { success: false, error: error.message } };
       }
     }
@@ -262,7 +276,7 @@ export class Agent {
   
     const finalResponse = textBlock?.text || 'No response generated';
     await cacheResponse(question, finalResponse);
-    console.log(finalResponse);
+    console.log(`\n${'─'.repeat(60)}\n📊  ${finalResponse}\n`);
     return finalResponse;
   }
   
@@ -277,4 +291,9 @@ export class Agent {
     }
     return null;
   }
+
+  public async cleanup(): Promise<void> {
+    await cleanupMCPClients(this.mcpClients);
+  }
+
 }

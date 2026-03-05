@@ -63,6 +63,7 @@ The PostgreSQL database contains e-commerce data with these tables:
 
 **Text Interfaces:**
 - Provide detailed responses with context and explanations as needed
+- Do NOT use markdown formatting — no **bold**, no *italic*, no headers, no bullet lists
 
 ## Analysis Approach
 
@@ -74,8 +75,12 @@ The PostgreSQL database contains e-commerce data with these tables:
 
 When queries fail, try alternative approaches. Chain tools when needed (e.g., query → calculate → chart → email). Always think step-by-step and explain your reasoning.`;
 
-export function createUserPrompt(question: string): string {
-  return `User question: ${question}
+export function createUserPrompt(question: string, openCircuits: string[] = []): string {
+  const warning = openCircuits.length > 0
+    ? `\n\n⚠️ Service availability notice:\n- The following tools have open circuit breakers and are temporarily unavailable: ${openCircuits.join(', ')}. Do not call them — use available alternatives or inform the user.`
+    : '';
+
+  return `User question: ${question}${warning}
 
 Please help answer this question using the available tools.`;
 }

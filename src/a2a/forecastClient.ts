@@ -11,7 +11,7 @@ async function discoverWithRetry(): Promise<any> {
       return response.data;
     } catch {
       if (attempt === RETRY_ATTEMPTS) throw new Error(`ForecastAgent not ready after ${RETRY_ATTEMPTS} attempts`);
-      console.log(`⏳ Waiting for ForecastAgent... (${attempt}/${RETRY_ATTEMPTS})`);
+      console.log(`\n⏳ Waiting for ForecastAgent... (${attempt}/${RETRY_ATTEMPTS})`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     }
   }
@@ -19,7 +19,6 @@ async function discoverWithRetry(): Promise<any> {
 
 export async function initializeA2ATools() {
   const agentCard = await discoverWithRetry();
-  console.log(`Agent card was discovered: ${agentCard.name}`);
 
   const a2aTools = agentCard.capabilities.tasks.map((task: any) => ({
     name: task.name,
@@ -34,7 +33,5 @@ export async function initializeA2ATools() {
       }
     }
   }));
-
-  console.log(`${agentCard.name} tools registered: ${a2aTools.map((t: any) => t.name).join(', ')}`);
   return a2aTools;
 }

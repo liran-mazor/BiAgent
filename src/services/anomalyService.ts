@@ -47,16 +47,16 @@ async function detectAnomalies(summary: any[]) {
 }
 
 async function main() {
-  console.log('🔍 Fetching recent traces...');
+  console.log('\n🔍 Fetching recent traces...');
   const traces = await fetchRecentTraces();
   
   if (!traces.length) {
-    console.log('No traces found.');
+    console.log('\nNo traces found.');
     return;
   }
 
   const summary = summarizeTraces(traces);
-  console.log(`📊 Analyzing ${summary.length} traces...`);
+  console.log(`\n📊 Analyzing ${summary.length} traces...`);
   
   const anomalies = await detectAnomalies(summary);
 
@@ -73,9 +73,9 @@ async function main() {
       body: `Automated anomaly detection report:\n\n🚨 Action required:\n\n${anomalies}`,
       attachments: []
     });
-    console.log('📧 Alert sent to team leader.');
+    console.log('\n📧 Alert sent to team leader.');
   } else {
-    console.log('✅ No anomalies detected — no email sent.');
+    console.log('\n✅ No anomalies detected — no email sent.');
   }
 }
 

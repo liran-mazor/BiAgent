@@ -29,22 +29,20 @@ export async function getCachedResponse(query: string): Promise<string | null> {
     );
     
     if (result.rows.length === 0) {
-      console.log('❌ Cache miss: No entries in cache');
+      console.log('  → Cache miss');
       return null;
     }
-    
+
     const { agent_response, distance } = result.rows[0];
-    
+
     if (distance < SIMILARITY_THRESHOLD) {
-      console.log(`🎯 Cache hit! (distance: ${distance.toFixed(4)})`);
+      console.log('  → Cache hit');
       return agent_response;
     }
-    
-    console.log(`❌ Cache miss: Closest match distance ${distance.toFixed(4)} > threshold ${SIMILARITY_THRESHOLD}`);
+    console.log('  → Cache miss');
     return null;
-    
   } catch (error) {
-    console.error('⚠️ Cache lookup failed:', error);
+    console.error('  → ⚠️Cache lookup failed:', error);
     return null;
   }
 }

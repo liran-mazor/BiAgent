@@ -4,8 +4,6 @@ import { CLAUDE } from '../agent/models';
 import { anthropic } from '../config/clients';
 
 export async function routeQuery(query: string): Promise<string> {
-  console.log('🧭 Routing query with Haiku...');
-  
   try {
     const response = await anthropic.messages.create({
       model: CLAUDE.Haiku,
@@ -26,10 +24,10 @@ export async function routeQuery(query: string): Promise<string> {
     const decision = textBlock?.text.trim().toUpperCase();
     
     if (decision?.includes('SIMPLE')) {
-      console.log('  → SIMPLE (using Haiku)\n');
+      console.log('\n  → SIMPLE (using Haiku)');
       return CLAUDE.Haiku;
     } else {
-      console.log('  → COMPLEX (using Sonnet)\n');
+      console.log('\n  → COMPLEX (using Sonnet)');
       return CLAUDE.Sonnet;
     }
   } catch (error) {

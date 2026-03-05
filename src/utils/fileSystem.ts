@@ -9,7 +9,7 @@ export const initializeTempDirectory = () => {
   [alfredTemp, telegramTemp].forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
-      console.log(`📁 Created ${dir}`);
+      console.log(`\n📁 Created ${dir}`);
     } else {
       fs.readdirSync(dir).forEach(file => fs.unlinkSync(path.join(dir, file)));
     }

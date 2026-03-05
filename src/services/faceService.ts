@@ -4,7 +4,7 @@ const wss = new WebSocketServer({ port: 3002 });
 let faceClient: any = null;
 
 wss.on('connection', (ws) => {
-  console.log('🖥️  Face renderer connected');
+  console.log('\n🖥️  Face renderer connected');
   faceClient = ws;
 });
 
@@ -16,7 +16,7 @@ function send(payload: object) {
 
 export function sendState(state: 'idle' | 'listening' | 'processing' | 'thinking' | 'speaking') {
   send({ type: 'state', value: state });
-  console.log(`🎭 Face: ${state}`);
+  console.log(`\n🎭 Face: ${state}`);
 }
 
 export function sendQuickMouth(durationMs: number) {

@@ -1,7 +1,5 @@
 require('dotenv').config();
 import { Agent } from '../agent/agent';
-import { mcpServers } from '../mcp/mcpServers';
-import { initializeMCPClients } from '../mcp/bootstrap';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
 import { AUDIO_PATHS } from '../alfred/audioPaths';
@@ -15,10 +13,9 @@ const WAKE_WORD_SENSITIVITY = 0.8;
 initializeTempDirectory();
 
 async function startVoiceInterface() {
-  const { mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
   let isProcessing = false;
 
-  const agent = new Agent(mcpTools, mcpClientMap);
+  const agent = new Agent();
 
   const handle = new Porcupine(
     process.env.PICOVOICE_ACCESS_KEY!,

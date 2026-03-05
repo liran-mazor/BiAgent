@@ -11,7 +11,7 @@ async function connectWithRetry(client: MCPClient) {
       return;
     } catch {
       if (attempt === RETRY_ATTEMPTS) throw new Error(`MCP server not ready after ${RETRY_ATTEMPTS} attempts`);
-      console.log(`⏳ Waiting for MCP server ... (${attempt}/${RETRY_ATTEMPTS})`);
+      console.log(`\n⏳ Waiting for MCP server ... (${attempt}/${RETRY_ATTEMPTS})`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     }
   }

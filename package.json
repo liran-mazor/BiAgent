@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "tsx src/interfaces/index.ts",
+    "index": "tsx src/interfaces/index.ts",
     "dev": "concurrently \"npm run forecast-agent\" \"npm start\"",
     "init-db": "cd ../agentiq-mcp-server && npm run init-db",
     "seed": "cd ../agentiq-mcp-server && npm run seed",
@@ -15,7 +15,9 @@
     "voice": "tsx src/interfaces/alfred.ts",
     "forecast-agent": "cd ../forecast-agent && npm run dev",
     "anomaly": "tsx src/services/anomalyService.ts",
-    "alfred": "concurrently --names \"FORECAST,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run forecast-agent\" \"npm run voice\""
+    "alfred": "concurrently --names \"FORECAST,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run forecast-agent\" \"npm run voice\"",
+    "telegram": "concurrently --names \"FORECAST,TELEGRAM\" --prefix-colors \"cyan,yellow\" \"npm run forecast-agent\" \"npm run bot\"",
+    "start": "tsx src/interfaces/index.ts"
   },
   "keywords": [],
   "author": "",

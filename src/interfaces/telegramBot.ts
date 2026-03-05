@@ -4,9 +4,7 @@ import path from 'node:path';
 import OpenAI from 'openai';
 import TelegramBot from 'node-telegram-bot-api';
 import { Agent } from '../agent/agent';
-import { mcpServers } from '../mcp/mcpServers';
 import { downloadFile, initializeTempDirectory } from '../utils/fileSystem';
-import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
 
 initializeTempDirectory();
 
@@ -14,19 +12,14 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: true });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function startBot() {
-  console.log('🔄 Initializing MCP clients...');
   
-  const { mcpClients, mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
+  const agent = new Agent();
 
-  const agent = new Agent(mcpTools, mcpClientMap);
-  
-  console.log('✅ Agent initialized');
-  console.log('🤖 Telegram bot is running...');
-  
-  // Add cleanup handler for graceful shutdown
+  console.log('\n🤖 Telegram bot is running...');
+
   process.on('SIGINT', async () => {
     console.log('\n👋 Shutting down bot...');
-    await cleanupMCPClients(mcpClients);
+    await agent.cleanup();
     bot.stopPolling();
     process.exit(0);
   });
@@ -75,6 +68,7 @@ async function startBot() {
       await bot.sendMessage(chatId, `🎤 I heard: "${transcription.text}"\n\nProcessing...`);
       
       await bot.sendChatAction(chatId, 'typing');
+     
       const answer = await agent.run(transcription.text, chatId.toString());
       
       const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);

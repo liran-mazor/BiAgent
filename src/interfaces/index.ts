@@ -1,24 +1,14 @@
 import { Agent } from '../agent/agent';
-import { mcpServers } from '../mcp/mcpServers';
-import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap';
 
 async function main() {
   const question = process.argv.slice(2).join(' ');
 
   try {
-    const { mcpClients, mcpTools, mcpClientMap } = await initializeMCPClients(mcpServers);
-
-    const agent = new Agent(mcpTools, mcpClientMap);
+    const agent = new Agent();
 
     const answer = await agent.run(question);
 
-    console.log('\n' + '='.repeat(80));
-    console.log('📊 Final Answer:');
-    console.log('='.repeat(80));
-    console.log(answer);
-    console.log('='.repeat(80) + '\n');
-
-    await cleanupMCPClients(mcpClients);
+    await agent.cleanup();
     process.exit(0);
   } catch (error) {
     console.error('Error:', error);
