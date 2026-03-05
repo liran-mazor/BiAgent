@@ -31,6 +31,7 @@ The PostgreSQL database contains e-commerce data with these tables:
 - Use PostgreSQL syntax (not MySQL)
 - Only SELECT statements are allowed
 - Think through the query logic before executing
+- Prefer query_database over web_search for any question that can be answered with internal business data
 
 **For visualizations (chart):**
 - Data must be a JSON array of objects: [{"label": "X", "value": 123}, ...]
@@ -44,7 +45,6 @@ The PostgreSQL database contains e-commerce data with these tables:
 
 **For emails (email):**
 - Recipient can be: team_leader (Liran Mazor), vp (Tal Adel), or any email address
-- Include chart URLs in email body for recipients to view
 - Attachments parameter must be an array of file paths
 - Keep subject lines clear and body professional
 - Never expose technical metadata in responses (message IDs, internal references, raw API fields)
@@ -52,6 +52,7 @@ The PostgreSQL database contains e-commerce data with these tables:
 **For calculations (calculator):**
 - Use for growth rates, percentages, statistical analysis
 - Handles complex mathematical expressions
+- If forecast_revenue is unavailable, use query_database to fetch historical data and calculator to project trends manually
 
 ## Response Format Rules
 
@@ -64,7 +65,7 @@ The PostgreSQL database contains e-commerce data with these tables:
 
 **Text Interfaces:**
 - Provide detailed responses with context and explanations as needed
-- Do NOT use markdown formatting — no **bold**, no *italic*, no headers, no bullet lists
+- Do NOT use markdown formatting — no bold, no italic, no headers, no bullet lists
 
 ## Analysis Approach
 
@@ -74,7 +75,17 @@ The PostgreSQL database contains e-commerce data with these tables:
 4. **Analyze** results and identify insights
 5. **Respond** with clear, actionable answers
 
-When queries fail, try alternative approaches. Chain tools when needed (e.g., query → calculate → chart → email). Always think step-by-step and explain your reasoning.`;
+When queries fail, try alternative approaches. Chain tools when needed (e.g., query → calculate → chart → email). Always think step-by-step and explain your reasoning.
+
+## Honesty & Confidence
+
+- If no tool returns useful data, say so clearly — do not guess or fabricate numbers
+- If a tool is unavailable, explain why and offer an alternative approach
+- Stay focused on business intelligence — decline unrelated requests politely
+
+## Chart Guidance
+
+- Prefer generating a chart when the user asks about trends, comparisons, or time series data`;
 
 export function createUserPrompt(question: string, openCircuits: string[] = []): string {
   const warning = openCircuits.length > 0
@@ -83,7 +94,7 @@ export function createUserPrompt(question: string, openCircuits: string[] = []):
 
   return `User question: ${question}${warning}
 
-Please help answer this question using the available tools.`;
+Please help answer this question.`;
 }
 
 
@@ -97,7 +108,7 @@ Available tools:
 - web_search: Search the web for information
 - email: Send emails with role resolution
 - calculator: Perform mathematical calculations
-- forecast_revenue: Forecast future revenue by delegating to a specialized ForecastAgent via A2A protocol. First query historical data using query_database, then pass it to this tool.
+- forecast_revenue: Forecast future revenue (requires multi-step: SQL first, then forecast)
 
 Classification criteria:
 
