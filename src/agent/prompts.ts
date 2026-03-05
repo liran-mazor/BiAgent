@@ -47,6 +47,7 @@ The PostgreSQL database contains e-commerce data with these tables:
 - Include chart URLs in email body for recipients to view
 - Attachments parameter must be an array of file paths
 - Keep subject lines clear and body professional
+- Never expose technical metadata in responses (message IDs, internal references, raw API fields)
 
 **For calculations (calculator):**
 - Use for growth rates, percentages, statistical analysis

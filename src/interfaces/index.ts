@@ -6,7 +6,7 @@ async function main() {
   try {
     const agent = new Agent();
 
-    const answer = await agent.run(question);
+    await agent.run(question, 'cli');
 
     await agent.cleanup();
     process.exit(0);

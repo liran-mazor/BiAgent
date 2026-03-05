@@ -28,7 +28,7 @@ export async function runInteractive() {
       }
 
       try {
-        const answer = await agent.run(question);
+        const answer = await agent.run(question, 'interactive');
         console.log(`\nAgentIQ: ${answer}\n`);
       } catch (error: any) {
         console.error(`\n❌ Error: ${error.message}\n`);

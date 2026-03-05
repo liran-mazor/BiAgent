@@ -18,7 +18,7 @@ export class Agent {
   private client: Anthropic;
   private maxIterations = 15;
   private conversationHistories: Map<string, Anthropic.MessageParam[]> = new Map();
-  private totalTokensUsed = 0;
+  private tokenUsageBySession: Map<string, number> = new Map();
 
   private a2aTools: A2ATool[] = [];
   private a2aInitPromise: Promise<void> | null = null;
@@ -34,7 +34,7 @@ export class Agent {
 
   public async run(
     question: string,
-    sessionId?: string
+    sessionId: string
   ): Promise<string> {
     console.log(`\n🤔  ${question}\n`);
 
@@ -45,58 +45,52 @@ export class Agent {
       console.log(`\n${'─'.repeat(60)}\n📊  ${cachedResponse}\n`);
       return cachedResponse;
     }
-  
+
     const model = await routeQuery(question);
 
     const formattedTools = this.formatToolsForClaude();
 
-    const actualSessionId = sessionId || `session_${Date.now()}`;
+    let messages = this.conversationHistories.get(sessionId) || [];
 
-    let messages = this.conversationHistories.get(actualSessionId) || [];
-
-    // count tokens, summarize if approaching limit, mark cache boundary
-    messages = await this.manageContext(messages);
+    messages = await this.manageContext(messages, sessionId);
 
     messages.push({ role: 'user', content: createUserPrompt(question, getOpenCircuits()) });
 
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
+      console.log(`\n  [Iteration ${iteration}]`);
+      
       const response = await this.callLLM(model, messages, formattedTools);
-      this.totalTokensUsed += response.usage.input_tokens + response.usage.output_tokens;
+      
+      console.log(`    Stop reason : ${response.stop_reason}`);
+      
+      this.trackTokenUsage(sessionId, response.usage);
 
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
       );
 
-      console.log(`\n  [Iteration ${iteration}]`);
-      console.log(`    Stop reason : ${response.stop_reason}`);
+      if (toolUseBlocks.length > 0) {
+        for (const b of toolUseBlocks) {
+          console.log(`    Tool        : ${b.name}`);
+          console.log(`    Input       : ${JSON.stringify(b.input)}`);
+        }
+        const toolResults = await Promise.all(
+          toolUseBlocks.map(block => this.executeTool(block))
+        );
 
-      // Final answer
-      if (toolUseBlocks.length === 0) {
-        return await this.handleFinalResponse(response, messages, question, actualSessionId);
+        messages.push({ role: 'assistant', content: response.content });
+        messages.push({
+          role: 'user',
+          content: toolResults.map(({ tool_use_id, result }) => ({
+            type: 'tool_result' as const,
+            tool_use_id,
+            content: JSON.stringify(result),
+          })),
+        });
+      } else {
+        return await this.handleFinalResponse(response, messages, question, sessionId);
       }
-
-      for (const b of toolUseBlocks) {
-        console.log(`    Tool        : ${b.name}`);
-        console.log(`    Input       : ${JSON.stringify(b.input)}`);
-      }
-      const toolResults = await Promise.all(
-        toolUseBlocks.map(block => this.executeTool(block))
-      );
-
-      messages.push({ role: 'assistant', content: response.content });
-      messages.push({
-        role: 'user',
-        content: toolResults.map(({ tool_use_id, result }) => ({
-          type: 'tool_result' as const,
-          tool_use_id,
-          content: JSON.stringify(result),
-        })),
-      });
-
-      const failureMessage = this.checkToolFailures(toolResults, response.stop_reason);
-      if (failureMessage) return failureMessage;
     }
-
     return `Max iterations (${this.maxIterations}) reached without final answer`;
   }
 
@@ -150,14 +144,13 @@ export class Agent {
 
   private formatToolsForClaude() {
     const nativeTools = tools.map(tool => {
-      const shape = (tool.parameters as any)._def.shape;
       return {
         name: tool.name,
         description: tool.description,
         input_schema: {
           type: 'object' as const,
           properties: zodToJsonSchema(tool.parameters),
-          required: Object.keys(shape),
+          required: Object.keys(tool.parameters.shape),
         },
       };
     });
@@ -183,20 +176,26 @@ export class Agent {
     );
   }
 
-  private async manageContext(messages: Anthropic.MessageParam[]) {
+  private trackTokenUsage(sessionId: string, usage: { input_tokens: number; output_tokens: number }) {
+    const sessionTokens = (this.tokenUsageBySession.get(sessionId) ?? 0) + usage.input_tokens + usage.output_tokens;
+    this.tokenUsageBySession.set(sessionId, sessionTokens);
+  }
+
+  private async manageContext(messages: Anthropic.MessageParam[], sessionId: string) {
     if (messages.length === 0) return messages;
-  
-    if (this.totalTokensUsed > 170000) {
-      console.log(`\n📊 Token limit approaching (${this.totalTokensUsed} tokens), summarizing...\n`);
+
+    const tokensUsed = this.tokenUsageBySession.get(sessionId) ?? 0;
+    if (tokensUsed > 170000) {
+      console.log(`\n📊 Token limit approaching (${tokensUsed} tokens), summarizing...\n`);
       const midpoint = Math.floor(messages.length / 2);
       const summary = await summarizeHistory(messages.slice(0, midpoint));
-      this.totalTokensUsed = 0;
+      this.tokenUsageBySession.set(sessionId, 0);
       messages = [
         { role: 'user', content: `Previous conversation summary: ${summary}` },
         ...messages.slice(midpoint)
       ];
     }
-  
+
     return this.markHistoryCacheBoundary(messages);
   }
   
@@ -280,18 +279,6 @@ export class Agent {
     return finalResponse;
   }
   
-  private checkToolFailures(
-    toolResults: { tool_use_id: string; result: any }[],
-    stopReason: Anthropic.Messages.StopReason | null
-  ): string | null {
-    const anyFailed = toolResults.some(({ result }) => !result.success);
-    if (anyFailed && stopReason === 'end_turn') {
-      const failedTools = toolResults.filter(({ result }) => !result.success);
-      return `Tool execution failed: ${failedTools.map(({ result }) => result.error).join(', ')}`;
-    }
-    return null;
-  }
-
   public async cleanup(): Promise<void> {
     await cleanupMCPClients(this.mcpClients);
   }

@@ -60,7 +60,7 @@ async function startVoiceInterface() {
 
       // THINKING state - agent running
       sendState('thinking');
-      const response = await agent.run(`[VOICE_INTERFACE] ${rawQuery}`);
+      const response = await agent.run(`[VOICE_INTERFACE] ${rawQuery}`, 'alfred');
 
       // SPEAKING state - prepare TTS, send duration, play
       const { durationMs, play } = await prepareSpeech(response);
