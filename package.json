@@ -1,10 +1,10 @@
 {
-  "name": "agentiq",
+  "name": "biagent",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "index": "tsx src/interfaces/index.ts",
-    "dev": "concurrently \"npm run forecast-agent\" \"npm start\"",
+    "dev": "concurrently \"npm run anomaly-agent\" \"npm start\"",
     "init-db": "cd ../agentiq-mcp-server && npm run init-db",
     "seed": "cd ../agentiq-mcp-server && npm run seed",
     "daily-seed": "cd ../agentiq-mcp-server && npm run daily-seed",
@@ -13,10 +13,9 @@
     "interactive": "tsx src/interfaces/interactive.ts",
     "bot": "tsx src/interfaces/telegramBot.ts",
     "voice": "tsx src/interfaces/alfred.ts",
-    "forecast-agent": "cd ../forecast-agent && npm run dev",
-    "anomaly": "tsx src/services/anomalyService.ts",
-    "alfred": "concurrently --names \"FORECAST,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run forecast-agent\" \"npm run voice\"",
-    "telegram": "concurrently --names \"FORECAST,TELEGRAM\" --prefix-colors \"cyan,yellow\" \"npm run forecast-agent\" \"npm run bot\"",
+    "anomaly-agent": "cd ../anomaly-detector-agent && npm run dev",
+    "alfred": "concurrently --names \"ANOMALY,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run anomaly-agent\" \"npm run voice\"",
+    "telegram": "concurrently --names \"ANOMALY,TELEGRAM\" --prefix-colors \"cyan,yellow\" \"npm run anomaly-agent\" \"npm run bot\"",
     "start": "tsx src/interfaces/index.ts"
   },
   "keywords": [],

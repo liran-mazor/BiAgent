@@ -9,7 +9,7 @@ export class MCPClient {
   constructor(private config: MCPServerConfig) {
     this.client = new Client(
       {
-        name: 'agentiq-client',
+        name: 'biagent-client',
         version: '1.0.0',
       },
       {

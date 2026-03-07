@@ -2,7 +2,7 @@ import readline from 'readline';
 import { Agent } from '../agent/agent';
 
 export async function runInteractive() {
-  console.log('\n🤖 AgentIQ Interactive Mode');
+  console.log('\n🤖 BiAgent Interactive Mode');
   console.log('Type your questions (or "exit" to quit)\n');
 
   const agent = new Agent();
@@ -29,7 +29,7 @@ export async function runInteractive() {
 
       try {
         const answer = await agent.run(question, 'interactive');
-        console.log(`\nAgentIQ: ${answer}\n`);
+        console.log(`\nBiAgent: ${answer}\n`);
       } catch (error: any) {
         console.error(`\n❌ Error: ${error.message}\n`);
       }

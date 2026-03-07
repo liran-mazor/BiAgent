@@ -1,15 +1,15 @@
 import { Tool } from './types';
 import { chartTool } from './chartTool';
 import { emailTool } from './emailTool';
-import { webSearchTool } from './webSearchTool';  
-import { calculatorTool } from './calculatorTool';
+import { webSearchTool } from './webSearchTool';
+import { forecastTool } from './forecastTool';
 
-export const tools: Tool[] = 
+export const tools: Tool[] =
 [
-  chartTool, 
-  emailTool, 
-  webSearchTool, 
-  calculatorTool,
+  chartTool,
+  emailTool,
+  webSearchTool,
+  forecastTool,
 ];
 
 export function getToolByName(name: string): Tool | undefined {

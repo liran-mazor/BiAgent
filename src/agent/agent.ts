@@ -5,7 +5,7 @@ import { tools, getToolByName } from '../tools';
 import { MCPTool } from '../mcp/types.js';
 import { MCPClient } from '../mcp/client.js';
 import { A2ATool } from '../a2a/types.js';
-import { initializeA2ATools } from '../a2a/forecastClient.js';
+import { initializeA2ATools } from '../a2a/anomalyClient.js';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap.js';
 import { mcpServers } from '../mcp/mcpServers.js';
 import { routeQuery } from '../services/routerService.js';

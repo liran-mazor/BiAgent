@@ -13,14 +13,6 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
-  anomaly-cron:
-    build:
-      context: .
-      dockerfile: Dockerfile.anomaly
-    container_name: biagent-anomaly-cron
-    env_file:
-      - .env
-    restart: unless-stopped
 
 volumes:
   postgres-data:
