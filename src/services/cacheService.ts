@@ -20,6 +20,7 @@ export async function getCachedResponse(query: string): Promise<string | null> {
     
     // Search for similar cached queries
     const result = await pool.query(
+      // <-> is pgvector's L2 distance operator; lower = more similar
       `SELECT agent_response, embedding <-> $1 AS distance
        FROM query_cache
        WHERE expires_at > NOW()

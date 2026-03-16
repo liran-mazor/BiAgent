@@ -10,20 +10,20 @@ docker-compose up -d          # Start PostgreSQL
 npm run init-db               # Initialize DB schema (runs in agentiq-mcp-server)
 npm run seed                  # Seed sample data
 
-# Run BiAgent
+# Run BiAgent (convenience scripts start anomaly-detector-agent automatically)
 npm start "query"             # Single query via CLI
 npm run interactive           # Conversational CLI
-npm run bot                   # Telegram bot interface
-npm run voice                 # Alfred voice assistant (requires RPi hardware)
-npm run alfred                # ForecastAgent + Alfred together
+npm run alfred                # Alfred voice (RPi) + AnomalyDetectorAgent together
+npm run telegram              # Telegram bot + AnomalyDetectorAgent together
+npm run dev                   # CLI + AnomalyDetectorAgent together
 
-# Companion services (required for full functionality)
-cd ../forecast-agent && npm run dev   # A2A ForecastAgent (port varies, see agent card)
-cd ../agentiq-mcp-server && npm run dev  # MCP server (STDIO-based)
+# Run components individually
+npm run voice                 # Alfred only (no companion agent)
+npm run bot                   # Telegram bot only
 
-# Observability
-npm run anomaly               # Run anomaly detection manually (LangSmith + Haiku + email)
-docker-compose up -d anomaly-cron   # Start daily cron container
+# Companion services (if starting manually)
+cd ../anomaly-detector-agent && npm run dev  # A2A AnomalyDetectorAgent (port 3003)
+cd ../agentiq-mcp-server && npm run dev      # MCP server (STDIO-based)
 
 # Maintenance
 npm run clear-cache           # Clear semantic cache
@@ -47,11 +47,16 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 8. `handleFinalResponse()` → store in session Map → cache result → return
 
 ### Three-Tier Tool Resolution
-- **Native** — in-process (chart, web_search, email, calculator)
+- **Native** — in-process (chart, web_search, email, forecast_revenue)
 - **MCP** — STDIO protocol via `agentiq-mcp-server/` (query_database → PostgreSQL)
-- **A2A** — HTTP protocol via `forecast-agent/` (forecast_revenue, discovered dynamically from Agent Card)
+- **A2A** — HTTP protocol via `anomaly-detector-agent/` (detect_anomalies, discovered dynamically from Agent Card)
 
-MCP and A2A tools are injected into the agent constructor; A2A tools are discovered at startup from `/.well-known/agent.json`.
+MCP tools are initialized via `initializeMCPClients()` (with retry — 5 attempts, 2s delay to handle race conditions when services start concurrently). A2A tools are lazily initialized inside the agent on the first `run()` call using a cached promise — interfaces no longer manage the A2A lifecycle. Reset-on-failure allows automatic retry.
+
+### Tool Inventory
+**Native (4):** `chart`, `email`, `web_search`, `forecast_revenue`
+**MCP (1):** `query_database` — SQL against 5 tables (customers, products, orders, order_items, reviews)
+**A2A (1):** `detect_anomalies` — AnomalyDetectorAgent fetches LangSmith traces, runs Haiku analysis, returns `{ report, hasIssues }`
 
 ### Prompt Caching (3/4 slots used)
 - Slot 1: System prompt (`cache_control: ephemeral` on system content block)
@@ -59,48 +64,78 @@ MCP and A2A tools are injected into the agent constructor; A2A tools are discove
 - Slot 3: Conversation history (`markHistoryCacheBoundary()` marks last message before new push)
 - Slot 4: Reserved for RAG
 
+### Semantic Cache
+OpenAI embeddings → pgvector cosine similarity search. Cache hit if distance < 0.15. Smart TTL: 5min (real-time), 1hr (recent), 7 days (historical), 24hr (default). Lives in `src/services/cacheService.ts`.
+
+### Intelligent Model Routing
+`routerService.ts` sends the query to Haiku with a prompt describing all tools and complexity signals. Returns `CLAUDE.Haiku` or `CLAUDE.Sonnet` directly. ~70% cost reduction on typical workloads.
+
+### Context Management
+Token count via API in `manageContext()`. Triggers summarization at 170k tokens (85% of 200k context limit). Compresses the old half of history using Haiku — no context truly lost. Lives in `summaryService.ts`. Token usage is tracked per-session (`tokenUsageBySession: Map<string, number>`) and reset when summarization triggers.
+
+### Circuit Breaker
+`src/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied only to MCP and A2A tools (native tools are in-process, no network). Config: 5s timeout, 50% error threshold, 10s reset timeout.
+
+The circuit breaker is **closed-loop**: a module-level `openCircuits: Set<string>` is updated on every `open`/`close` event. `getOpenCircuits()` is called on every `run()` and the result is passed to `createUserPrompt()`. If any circuits are open, a warning is injected directly into the user message Claude receives:
+```
+⚠️ Service availability notice:
+- The following tools have open circuit breakers and are temporarily unavailable: [tool names]. Do not call them — use available alternatives or inform the user.
+```
+Claude reasons around the failure rather than calling a broken tool and getting a fallback error.
+
+### LangSmith Observability
+Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOpenAI`) in `src/config/clients.ts`. Zero agent code changes needed — all LLM calls traced automatically.
+
 ### Key Files
 | Path | Purpose |
 |------|---------|
 | `src/agent/agent.ts` | ReAct loop + all private orchestration methods |
-| `src/agent/prompts.ts` | All prompts: system, router, summary, anomaly |
+| `src/agent/prompts.ts` | All prompts: system, router, summary |
 | `src/agent/models.ts` | `CLAUDE` constants (Haiku/Sonnet model IDs) |
 | `src/config/clients.ts` | Shared Anthropic + OpenAI singletons, LangSmith-wrapped |
 | `src/mcp/bootstrap.ts` | `initializeMCPClients()` |
-| `src/a2a/forecastClient.ts` | `initializeA2ATools()` + A2A discovery |
+| `src/a2a/anomalyClient.ts` | `initializeA2ATools()` + A2A discovery |
 | `src/services/cacheService.ts` | Semantic cache + pgvector |
 | `src/services/routerService.ts` | Haiku router → returns model string |
 | `src/services/summaryService.ts` | Token-aware history summarization |
 | `src/utils/circuitBreaker.ts` | opossum circuit breaker registry (MCP/A2A only) |
 | `src/tools/chartTool.ts` | Chart.js + S3 upload; exports `getLastChartUrl`/`clearLastChartUrl` |
+| `src/tools/forecastTool.ts` | Native linear trend forecasting |
 | `src/services/faceService.ts` | WebSocket server (port 3002) + `sendChart()` to RPi face |
-| `src/services/anomalyService.ts` | LangSmith trace fetch → Haiku analysis → email |
 
 ### Companion Projects (sibling directories)
 - `../agentiq-mcp-server/` — Standalone MCP server exposing `query_database` over STDIO
-- `../forecast-agent/` — Standalone A2A agent with Agent Card, exposes `forecast_revenue`
+- `../anomaly-detector-agent/` — Standalone A2A agent (port 3003); exposes `detect_anomalies`; fetches LangSmith traces and runs Haiku anomaly analysis; Agent Card at `/.well-known/agent.json`
 
 ### Alfred Voice Interface
-Alfred is a wake-word-activated voice assistant deployed on a Raspberry Pi 4 with a 7" touchscreen. Flow: Picovoice wake word → Deepgram streaming STT → agent → Google Cloud TTS → audio playback. Chart URLs are read from `chartTool.lastChartUrl` (module state) and sent via WebSocket to `face.html` as a fullscreen overlay before speech begins.
+Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
+
+**Flow:** Picovoice wake word ("Alfred") → stop recorder → play "All ears" → record 7s → play "On it" → Whisper STT → agent (with `[VOICE_INTERFACE]` prefix for short responses) → Google Cloud TTS → audio playback.
+
+**Chart display:** After each query, `getLastChartUrl()` is checked. If a chart was generated, `faceService.sendChart(url)` pushes it via WebSocket to `face.html` as a fullscreen overlay — sent *before* `play()` so it appears as Alfred starts speaking. `clearLastChartUrl()` prevents stale charts across queries.
+
+**Key details:**
+- Wake word model: `src/voice/audio/alfred.ppn` (custom-trained Picovoice)
+- Pre-generated audio: `confirmation.mp3` ("All ears"), `ack.mp3` ("On it")
+- RPi timing: 950ms delays on mouth animations; 400ms after recorder stop before confirmation plays
+- Cancel: saying "stop" after wake word → `continue` back to listening loop
+- Voice: `en-GB-Neural2-B` (British male, Google Cloud TTS)
 
 ### Interfaces
 - `src/interfaces/index.ts` — CLI single query
 - `src/interfaces/interactive.ts` — conversational CLI with session memory
 - `src/interfaces/telegramBot.ts` — Telegram bot (text + voice)
-- `src/interfaces/alfred.ts` — Alfred wake word loop
+- `src/interfaces/alfred.ts` — Alfred wake word loop + chart display
 
 ### Pitch Presentation
-`pitch/biagent-presentation.html` — standalone single-file reveal-style HTML presentation. No build step; open directly in a browser.
+`pitch/biagent-presentation.html` — standalone single-file reveal-style HTML. No build step; open directly in a browser.
 
-**Navigation:** Enter / Space / ArrowRight advance steps within a slide (revealing elements one by one). ArrowRight at the end of a slide moves to the next slide (clean slate). Click also advances.
+**Navigation:** Enter / Space / ArrowRight advance steps within a slide. ArrowRight at end of slide moves to next slide. Click also advances.
 
 **Aesthetic — "old money" dark mode:**
 - Background: `#1c1812`, cream: `#e8dfc8`, parchment: `#c4b89a`, green: `#3d6456`, gold: `#b8a07a`, dim: `#4a4035`
-- Grain texture overlay on body (SVG noise filter)
-- Corner bracket ornaments top-left / bottom-right
-- Title font: Cormorant Garamond (thin, spaced, uppercase)
-- Body font: Libre Baskerville
-- Labels/mono: DM Mono
+- Grain texture overlay (SVG noise filter), corner bracket ornaments
+- Title: Cormorant Garamond (thin, spaced, uppercase) / Body: Libre Baskerville / Mono: DM Mono
 
 **Slide status:**
 - Page 1 — complete and approved. Four sections revealed in sequence: S1 header, S2 divider + tagline, S3 example query, S4 flow diagram.
@@ -116,6 +151,7 @@ LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 LANGSMITH_API_KEY
 LANGSMITH_PROJECT=BiAgent
+ANOMALY_AGENT_URL=http://localhost:3003
 PICOVOICE_ACCESS_KEY     # Alfred only
 GOOGLE_APPLICATION_CREDENTIALS  # Alfred TTS only
 ```

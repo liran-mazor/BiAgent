@@ -86,7 +86,8 @@ When queries fail, try alternative approaches. Chain tools when needed (e.g., qu
 
 ## Chart Guidance
 
-- Prefer generating a chart when the user asks about trends, comparisons, or time series data`;
+- Prefer generating a chart when the user asks about trends, comparisons, or time series data
+- Treat "show me", "visualize", "display", "plot", or "graph" as requests for a chart — the user does not need to say the word "chart"`;
 
 export function createUserPrompt(question: string, openCircuits: string[] = []): string {
   const warning = openCircuits.length > 0

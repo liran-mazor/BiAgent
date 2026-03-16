@@ -67,7 +67,7 @@ async function startVoiceInterface() {
       sendSpeaking(durationMs);
       const chartUrl = getLastChartUrl();
       clearLastChartUrl();
-      if (chartUrl) sendChart(chartUrl);
+      if (chartUrl) sendChart(chartUrl); // send before play() so chart appears as Alfred starts speaking
       await play();
 
       // Back to IDLE

@@ -52,13 +52,14 @@ export class Agent {
 
     let messages = this.conversationHistories.get(sessionId) || [];
 
-    messages = await this.manageContext(messages, sessionId);
+    messages = await this.summarizeIfNeeded(messages, sessionId);
+    if (messages.length > 0) messages = this.markHistoryCacheBoundary(messages);
 
     messages.push({ role: 'user', content: createUserPrompt(question, getOpenCircuits()) });
 
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
       console.log(`\n  ◈ Iteration ${iteration}`);
-      
+
       const response = await this.callLLM(model, messages, formattedTools);
       
       console.log(`    Stop reason : ${response.stop_reason}`);
@@ -123,7 +124,7 @@ export class Agent {
           this.mcpClientMap = mcpClientMap;
         })
         .catch(err => {
-          this.mcpInitPromise = null;
+          this.mcpInitPromise = null; // null allows the next run() to retry
           console.warn(`⚠️ MCP tools unavailable: ${err.message}`);
         });
     }
@@ -135,7 +136,7 @@ export class Agent {
       this.a2aInitPromise = initializeA2ATools()
         .then(tools => { this.a2aTools = tools; })
         .catch(err => {
-          this.a2aInitPromise = null;
+          this.a2aInitPromise = null; // null allows the next run() to retry
           console.warn(`⚠️ A2A tools unavailable: ${err.message}`);
         });
     }
@@ -168,8 +169,9 @@ export class Agent {
     }));
   
     const allTools = [...nativeTools, ...mcpToolsFormatted, ...a2aToolsFormatted];
-  
-    return allTools.map((tool, index) => 
+
+    // Prompt cache slot 2: cache boundary on last tool so the full tool list is cached
+    return allTools.map((tool, index) =>
       index === allTools.length - 1
         ? { ...tool, cache_control: { type: 'ephemeral' as const } }
         : tool
@@ -181,12 +183,13 @@ export class Agent {
     this.tokenUsageBySession.set(sessionId, sessionTokens);
   }
 
-  private async manageContext(messages: Anthropic.MessageParam[], sessionId: string) {
+  private async summarizeIfNeeded(messages: Anthropic.MessageParam[], sessionId: string) {
     if (messages.length === 0) return messages;
 
     const tokensUsed = this.tokenUsageBySession.get(sessionId) ?? 0;
     if (tokensUsed > 170000) {
       console.log(`\n📊 Token limit approaching (${tokensUsed} tokens), summarizing...\n`);
+      // Summarize only the old half — keeps recent context intact for continuity
       const midpoint = Math.floor(messages.length / 2);
       const summary = await summarizeHistory(messages.slice(0, midpoint));
       this.tokenUsageBySession.set(sessionId, 0);
@@ -196,20 +199,21 @@ export class Agent {
       ];
     }
 
-    return this.markHistoryCacheBoundary(messages);
+    return messages;
   }
   
+  // Prompt cache slot 3: marks the last history message so everything up to here is cached
   private markHistoryCacheBoundary(messages: Anthropic.MessageParam[]) {
     const lastMessage = messages[messages.length - 1];
     const contentBlocks = typeof lastMessage.content === 'string'
       ? [{ type: 'text' as const, text: lastMessage.content }]
       : [...lastMessage.content as any[]];
-  
+
     contentBlocks[contentBlocks.length - 1] = {
       ...contentBlocks[contentBlocks.length - 1],
       cache_control: { type: 'ephemeral' as const }
     };
-  
+
     messages[messages.length - 1] = { ...lastMessage, content: contentBlocks };
     return messages;
   }
@@ -269,7 +273,7 @@ export class Agent {
     const textBlock = response.content.find(
       (block): block is Anthropic.TextBlock => block.type === 'text'
     );
-  
+
     messages.push({ role: 'assistant', content: response.content });
     this.conversationHistories.set(sessionId, messages);
   

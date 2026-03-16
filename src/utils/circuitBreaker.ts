@@ -7,6 +7,7 @@ const CIRCUIT_BREAKER_OPTIONS = {
 } as const;
 
 const breakers: Map<string, CircuitBreaker> = new Map();
+// Module-level so open circuit state persists across run() calls and can be injected into prompts
 const openCircuits: Set<string> = new Set();
 
 export function getOpenCircuits(): string[] {

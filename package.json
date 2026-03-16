@@ -33,7 +33,6 @@
     "@picovoice/porcupine-node": "^4.0.2",
     "@picovoice/pvrecorder-node": "^1.2.8",
     "@tavily/core": "^0.7.1",
-    "axios": "^1.13.5",
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
     "dotenv": "^17.2.3",

@@ -36,7 +36,7 @@ export class MCPClient {
     const transport = new StdioClientTransport({
       command: this.config.command,
       args: this.config.args,
-      env: { ...process.env as Record<string, string>, ...cleanEnv },
+      env: { ...process.env as Record<string, string>, ...cleanEnv }, // inherit full env, overlay MCP-specific vars
     });
 
     await this.client.connect(transport);
