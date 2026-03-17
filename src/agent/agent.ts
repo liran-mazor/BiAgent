@@ -5,12 +5,12 @@ import { tools, getToolByName } from '../tools';
 import { MCPTool } from '../mcp/types.js';
 import { MCPClient } from '../mcp/client.js';
 import { A2ATool } from '../a2a/types.js';
-import { initializeA2ATools } from '../a2a/anomalyClient.js';
+import { initializeA2ATools } from '../a2a/observabilityClient.js';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap.js';
 import { mcpServers } from '../mcp/mcpServers.js';
-import { routeQuery } from '../services/routerService.js';
+import { classifyQuery } from '../services/classifierService.js';
 import { getCachedResponse, cacheResponse } from '../services/cacheService';
-import { summarizeHistory } from '../services/summaryService.js';
+import { summarizeHistory, formatSummaryForContext } from '../services/summaryService.js';
 import { getCircuitBreaker, getOpenCircuits } from '../utils/circuitBreaker';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema.js';
 
@@ -18,7 +18,7 @@ export class Agent {
   private client: Anthropic;
   private maxIterations = 15;
   private conversationHistories: Map<string, Anthropic.MessageParam[]> = new Map();
-  private tokenUsageBySession: Map<string, number> = new Map();
+  private tokenUsageByConversation: Map<string, number> = new Map();
 
   private a2aTools: A2ATool[] = [];
   private a2aInitPromise: Promise<void> | null = null;
@@ -34,7 +34,7 @@ export class Agent {
 
   public async run(
     question: string,
-    sessionId: string
+    conversationId: string
   ): Promise<string> {
     console.log(`\n🤔  Question: ${question}\n`);
 
@@ -46,14 +46,14 @@ export class Agent {
       return cachedResponse;
     }
 
-    const model = await routeQuery(question);
+    const { model } = await classifyQuery(question);
 
     const formattedTools = this.formatToolsForClaude();
 
-    let messages = this.conversationHistories.get(sessionId) || [];
+    let messages = this.conversationHistories.get(conversationId) || [];
 
-    messages = await this.summarizeIfNeeded(messages, sessionId);
-    if (messages.length > 0) messages = this.markHistoryCacheBoundary(messages);
+    messages = await this.summarizeIfNeeded(messages, conversationId, question);
+    messages = this.markHistoryCacheBoundary(messages);
 
     messages.push({ role: 'user', content: createUserPrompt(question, getOpenCircuits()) });
 
@@ -64,7 +64,7 @@ export class Agent {
       
       console.log(`    Stop reason : ${response.stop_reason}`);
       
-      this.trackTokenUsage(sessionId, response.usage);
+      this.trackTokenUsage(conversationId, response.usage);
 
       const toolUseBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
@@ -89,7 +89,7 @@ export class Agent {
           })),
         });
       } else {
-        return await this.handleFinalResponse(response, messages, question, sessionId);
+        return await this.handleFinalResponse(response, messages, question, conversationId);
       }
     }
     return `Max iterations (${this.maxIterations}) reached without final answer`;
@@ -178,24 +178,24 @@ export class Agent {
     );
   }
 
-  private trackTokenUsage(sessionId: string, usage: { input_tokens: number; output_tokens: number }) {
-    const sessionTokens = (this.tokenUsageBySession.get(sessionId) ?? 0) + usage.input_tokens + usage.output_tokens;
-    this.tokenUsageBySession.set(sessionId, sessionTokens);
+  private trackTokenUsage(conversationId: string, usage: { input_tokens: number; output_tokens: number }) {
+    const sessionTokens = (this.tokenUsageByConversation.get(conversationId) ?? 0) + usage.input_tokens + usage.output_tokens;
+    this.tokenUsageByConversation.set(conversationId, sessionTokens);
   }
 
-  private async summarizeIfNeeded(messages: Anthropic.MessageParam[], sessionId: string) {
+  private async summarizeIfNeeded(messages: Anthropic.MessageParam[], conversationId: string, question: string) {
     if (messages.length === 0) return messages;
 
-    const tokensUsed = this.tokenUsageBySession.get(sessionId) ?? 0;
+    const tokensUsed = this.tokenUsageByConversation.get(conversationId) ?? 0;
     if (tokensUsed > 170000) {
       console.log(`\n📊 Token limit approaching (${tokensUsed} tokens), summarizing...\n`);
-      // Summarize only the old half — keeps recent context intact for continuity
-      const midpoint = Math.floor(messages.length / 2);
-      const summary = await summarizeHistory(messages.slice(0, midpoint));
-      this.tokenUsageBySession.set(sessionId, 0);
+      const keepCount = 5;
+      const summary = await summarizeHistory(messages.slice(0, -keepCount));
+      const contextBlock = formatSummaryForContext(summary, question);
+      this.tokenUsageByConversation.set(conversationId, 0);
       messages = [
-        { role: 'user', content: `Previous conversation summary: ${summary}` },
-        ...messages.slice(midpoint)
+        { role: 'user', content: `Previous conversation summary:\n${contextBlock}` },
+        ...messages.slice(-keepCount)
       ];
     }
 
@@ -204,6 +204,7 @@ export class Agent {
   
   // Prompt cache slot 3: marks the last history message so everything up to here is cached
   private markHistoryCacheBoundary(messages: Anthropic.MessageParam[]) {
+    if (messages.length === 0) return messages;
     const lastMessage = messages[messages.length - 1];
     const contentBlocks = typeof lastMessage.content === 'string'
       ? [{ type: 'text' as const, text: lastMessage.content }]
@@ -223,7 +224,7 @@ export class Agent {
     // Native tool — in-process, no retry needed
     const nativeTool = getToolByName(toolUseBlock.name);
     if (nativeTool) {
-      const result = await nativeTool.execute(toolUseBlock.input);
+      const result = await nativeTool.execute(toolUseBlock.input as any);
       if (!result.success) console.log(`    ❌  ${toolUseBlock.name}  ${result.error}`);
       return { tool_use_id: toolUseBlock.id, result };
     }
@@ -251,7 +252,8 @@ export class Agent {
     if (a2aTool) {
       try {
         const breaker = getCircuitBreaker(toolUseBlock.name,
-          (input: any) => a2aTool.execute(input)
+          (input: any) => a2aTool.execute(input),
+          true  // A2A tools need a longer timeout (LangSmith fetch + LLM call)
         );
         const result = await breaker.fire(toolUseBlock.input);
         return { tool_use_id: toolUseBlock.id, result };
@@ -268,14 +270,14 @@ export class Agent {
     response: Anthropic.Message,
     messages: Anthropic.MessageParam[],
     question: string,
-    sessionId: string
+    conversationId: string
   ): Promise<string> {
     const textBlock = response.content.find(
       (block): block is Anthropic.TextBlock => block.type === 'text'
     );
 
     messages.push({ role: 'assistant', content: response.content });
-    this.conversationHistories.set(sessionId, messages);
+    this.conversationHistories.set(conversationId, messages);
   
     const finalResponse = textBlock?.text || 'No response generated';
     await cacheResponse(question, finalResponse);

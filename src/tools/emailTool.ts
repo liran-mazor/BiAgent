@@ -43,21 +43,23 @@ export const EmailToolParams = z.object({
 
 export type EmailToolInput = z.infer<typeof EmailToolParams>;
 
-export const emailTool: Tool = {
+export const emailTool: Tool<typeof EmailToolParams> = {
   name: 'email',
   description: 'Send an email with optional attachments. Use when user requests to send, email, or share results. Recipient can be a role (team_leader, vp) or direct email address.',
   parameters: EmailToolParams,
-  execute: async (params: any): Promise<ToolResult> => {
+  execute: async (params: z.infer<typeof EmailToolParams>): Promise<ToolResult> => {
     try {
-      if (typeof params.attachments === 'string') {
+      // Claude sometimes sends attachments as a JSON string — normalize before validation
+      const raw = params as any;
+      if (typeof raw.attachments === 'string') {
         try {
-          params.attachments = JSON.parse(params.attachments);
+          raw.attachments = JSON.parse(raw.attachments);
         } catch (e) {
           return { success: false, error: 'Invalid attachments format. Must be an array of file paths.' };
         }
       }
 
-      const validated = EmailToolParams.parse(params);
+      const validated = EmailToolParams.parse(raw);
       const recipientEmail = resolveRecipient(validated.recipient);
 
       if (!recipientEmail) {

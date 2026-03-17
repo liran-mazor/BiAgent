@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
-export interface Tool {
+export interface Tool<T extends z.ZodObject<any> = z.ZodObject<any>> {
   name: string;
   description: string;
-  parameters: z.ZodObject<any>;
-  execute: (params: any) => Promise<ToolResult>;
+  parameters: T;
+  execute: (params: z.infer<T>) => Promise<ToolResult>;
 }
 
 export interface ToolResult {

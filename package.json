@@ -13,9 +13,9 @@
     "interactive": "tsx src/interfaces/interactive.ts",
     "bot": "tsx src/interfaces/telegramBot.ts",
     "voice": "tsx src/interfaces/alfred.ts",
-    "anomaly-agent": "cd ../anomaly-detector-agent && npm run dev",
-    "alfred": "concurrently --names \"ANOMALY,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run anomaly-agent\" \"npm run voice\"",
-    "telegram": "concurrently --names \"ANOMALY,TELEGRAM\" --prefix-colors \"cyan,yellow\" \"npm run anomaly-agent\" \"npm run bot\"",
+    "a2a": "cd ../observability-agent && npm run dev",
+    "alfred": "concurrently --names \"OBSERVABILITY,ALFRED\" --prefix-colors \"cyan,yellow\" \"npm run anomaly-agent\" \"npm run voice\"",
+    "telegram": "concurrently --names \"OBSERVABILITY,TELEGRAM\" --prefix-colors \"cyan,yellow\" \"npm run anomaly-agent\" \"npm run bot\"",
     "start": "tsx src/interfaces/index.ts"
   },
   "keywords": [],

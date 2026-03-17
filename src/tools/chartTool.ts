@@ -43,17 +43,18 @@ const gradientColors = [
   { start: '#a855f7', end: '#7e22ce' },   // Purple gradient
 ];
 
-export const chartTool: Tool = {
+export const chartTool: Tool<typeof ChartToolParams> = {
   name: 'chart',
   description: 'Generate beautiful, modern charts (bar/line/pie) with gradients, shadows, and data labels as PNG images. Only use this when the user explicitly requests a chart, graph, or visualization.',
   parameters: ChartToolParams,
-  
-  execute: async (params: any): Promise<ToolResult> => {
+
+  execute: async (params: z.infer<typeof ChartToolParams>): Promise<ToolResult> => {
     try {
-      // Handle case where data might be a JSON string
-      if (typeof params.data === 'string') {
+      // Claude sometimes sends data as a JSON string — normalize before validation
+      const raw = params as any;
+      if (typeof raw.data === 'string') {
         try {
-          params.data = JSON.parse(params.data);
+          raw.data = JSON.parse(raw.data);
         } catch (e) {
           return {
             success: false,
@@ -62,8 +63,7 @@ export const chartTool: Tool = {
         }
       }
 
-      // Validate input
-      const validated = ChartToolParams.parse(params) as ChartToolInput;
+      const validated = ChartToolParams.parse(raw) as ChartToolInput;
       
       const labels = validated.data.map(d => d.label);
       const values = validated.data.map(d => d.value);

@@ -1,6 +1,6 @@
 import { A2ATool } from './types.js';
 
-const ANOMALY_AGENT_URL = process.env.ANOMALY_AGENT_URL || 'http://localhost:3003';
+const OBSERVABILITY_AGENT_URL = process.env.OBSERVABILITY_AGENT_URL || 'http://localhost:3003';
 
 async function fetchAgentCardWithRetry(url: string): Promise<any> {
   const RETRY_ATTEMPTS = 5;
@@ -21,25 +21,27 @@ async function fetchAgentCardWithRetry(url: string): Promise<any> {
 
 export async function initializeA2ATools(): Promise<A2ATool[]> {
   try {
-    const agentCard = await fetchAgentCardWithRetry(`${ANOMALY_AGENT_URL}/.well-known/agent.json`);
-
+    const agentCard = await fetchAgentCardWithRetry(`${OBSERVABILITY_AGENT_URL}/.well-known/agent.json`);
     return agentCard.capabilities.tasks.map((task: any) => ({
       name: task.name,
       description: task.description,
       inputSchema: task.inputSchema,
       execute: async (input: any) => {
-        const res = await fetch(`${ANOMALY_AGENT_URL}/tasks`, {
+        const res = await fetch(`${OBSERVABILITY_AGENT_URL}/tasks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ task: task.name, input })
         });
-        if (!res.ok) throw new Error(`A2A task failed: ${res.statusText}`);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '(unreadable)');
+          throw new Error(`A2A task failed: ${res.statusText} — ${body}`);
+        }
         return res.json();
       }
     }));
   } catch (error: any) {
     // A2A is optional — agent continues with native + MCP tools if unavailable
-    console.warn(`⚠️  AnomalyDetectorAgent unavailable: ${error.message}`);
+    console.warn(`⚠️  ObservabilityAgent unavailable: ${error.message}`);
     return [];
   }
 }

@@ -38,7 +38,7 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 
 ### ReAct Loop (agent.ts `run()`)
 1. Semantic cache check (pgvector cosine similarity, threshold 0.15)
-2. `routeQuery()` → Haiku decides: use Haiku (simple) or Sonnet (complex)
+2. `classifyQuery()` → Haiku decides: use Haiku (simple) or Sonnet (complex)
 3. `formatToolsForClaude()` — called once per `run()`, reused across all iterations
 4. `manageContext()` — token count via API → summarize with Haiku if >170k tokens → mark prompt cache boundary
 5. `callLLM()` — Claude API with cached system prompt + tool definitions + history
@@ -49,14 +49,14 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 ### Three-Tier Tool Resolution
 - **Native** — in-process (chart, web_search, email, forecast_revenue)
 - **MCP** — STDIO protocol via `agentiq-mcp-server/` (query_database → PostgreSQL)
-- **A2A** — HTTP protocol via `anomaly-detector-agent/` (detect_anomalies, discovered dynamically from Agent Card)
+- **A2A** — HTTP protocol via `observability-agent/` (query_observability, discovered dynamically from Agent Card)
 
 MCP tools are initialized via `initializeMCPClients()` (with retry — 5 attempts, 2s delay to handle race conditions when services start concurrently). A2A tools are lazily initialized inside the agent on the first `run()` call using a cached promise — interfaces no longer manage the A2A lifecycle. Reset-on-failure allows automatic retry.
 
 ### Tool Inventory
 **Native (4):** `chart`, `email`, `web_search`, `forecast_revenue`
 **MCP (1):** `query_database` — SQL against 5 tables (customers, products, orders, order_items, reviews)
-**A2A (1):** `detect_anomalies` — AnomalyDetectorAgent fetches LangSmith traces, runs Haiku analysis, returns `{ report, hasIssues }`
+**A2A (1):** `query_observability` — ObservabilityAgent fetches LangSmith traces, answers any observability question via Haiku, returns `{ answer }`
 
 ### Prompt Caching (3/4 slots used)
 - Slot 1: System prompt (`cache_control: ephemeral` on system content block)
@@ -67,14 +67,14 @@ MCP tools are initialized via `initializeMCPClients()` (with retry — 5 attempt
 ### Semantic Cache
 OpenAI embeddings → pgvector cosine similarity search. Cache hit if distance < 0.15. Smart TTL: 5min (real-time), 1hr (recent), 7 days (historical), 24hr (default). Lives in `src/services/cacheService.ts`.
 
-### Intelligent Model Routing
-`routerService.ts` sends the query to Haiku with a prompt describing all tools and complexity signals. Returns `CLAUDE.Haiku` or `CLAUDE.Sonnet` directly. ~70% cost reduction on typical workloads.
+### Intelligent Model Classification
+`classifierService.ts` sends the query to Haiku to classify complexity. Returns `CLAUDE.Haiku` or `CLAUDE.Sonnet` directly. ~70% cost reduction on typical workloads.
 
 ### Context Management
 Token count via API in `manageContext()`. Triggers summarization at 170k tokens (85% of 200k context limit). Compresses the old half of history using Haiku — no context truly lost. Lives in `summaryService.ts`. Token usage is tracked per-session (`tokenUsageBySession: Map<string, number>`) and reset when summarization triggers.
 
 ### Circuit Breaker
-`src/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied only to MCP and A2A tools (native tools are in-process, no network). Config: 5s timeout, 50% error threshold, 10s reset timeout.
+`src/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied only to MCP and A2A tools (native tools are in-process, no network). MCP config: 5s timeout; A2A config: 30s timeout (LangSmith fetch + LLM call). Both: 50% error threshold, 10s reset timeout.
 
 The circuit breaker is **closed-loop**: a module-level `openCircuits: Set<string>` is updated on every `open`/`close` event. `getOpenCircuits()` is called on every `run()` and the result is passed to `createUserPrompt()`. If any circuits are open, a warning is injected directly into the user message Claude receives:
 ```
@@ -90,13 +90,13 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | Path | Purpose |
 |------|---------|
 | `src/agent/agent.ts` | ReAct loop + all private orchestration methods |
-| `src/agent/prompts.ts` | All prompts: system, router, summary |
+| `src/agent/prompts.ts` | All prompts: system, classifier, summary |
 | `src/agent/models.ts` | `CLAUDE` constants (Haiku/Sonnet model IDs) |
 | `src/config/clients.ts` | Shared Anthropic + OpenAI singletons, LangSmith-wrapped |
 | `src/mcp/bootstrap.ts` | `initializeMCPClients()` |
-| `src/a2a/anomalyClient.ts` | `initializeA2ATools()` + A2A discovery |
+| `src/a2a/observabilityClient.ts` | `initializeA2ATools()` + A2A discovery |
 | `src/services/cacheService.ts` | Semantic cache + pgvector |
-| `src/services/routerService.ts` | Haiku router → returns model string |
+| `src/services/classifierService.ts` | Haiku classifier → returns model string |
 | `src/services/summaryService.ts` | Token-aware history summarization |
 | `src/utils/circuitBreaker.ts` | opossum circuit breaker registry (MCP/A2A only) |
 | `src/tools/chartTool.ts` | Chart.js + S3 upload; exports `getLastChartUrl`/`clearLastChartUrl` |
@@ -105,7 +105,7 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 
 ### Companion Projects (sibling directories)
 - `../agentiq-mcp-server/` — Standalone MCP server exposing `query_database` over STDIO
-- `../anomaly-detector-agent/` — Standalone A2A agent (port 3003); exposes `detect_anomalies`; fetches LangSmith traces and runs Haiku anomaly analysis; Agent Card at `/.well-known/agent.json`
+- `../observability-agent/` — Standalone A2A agent (port 3003); exposes `query_observability`; fetches LangSmith traces and answers any observability question via Haiku; Agent Card at `/.well-known/agent.json`
 
 ### Alfred Voice Interface
 Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.

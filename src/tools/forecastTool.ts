@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ToolResult } from './types.js';
+import { Tool, ToolResult } from './types.js';
 
 const ForecastInputSchema = z.object({
   historicalData: z.array(z.object({
@@ -9,13 +9,13 @@ const ForecastInputSchema = z.object({
   monthsAhead: z.number().int().positive()
 });
 
-export const forecastTool = {
+export const forecastTool: Tool<typeof ForecastInputSchema> = {
   name: 'forecast_revenue',
   description: 'Forecast future revenue based on historical monthly data using linear trend analysis. Pass historical data as array of {month, revenue} objects.',
   parameters: ForecastInputSchema,
-  execute: async (input: unknown): Promise<ToolResult> => {
+  execute: async (params: z.infer<typeof ForecastInputSchema>): Promise<ToolResult> => {
     try {
-      const { historicalData, monthsAhead } = ForecastInputSchema.parse(input);
+      const { historicalData, monthsAhead } = ForecastInputSchema.parse(params);
 
       const n = historicalData.length;
       const revenues = historicalData.map(d => d.revenue);

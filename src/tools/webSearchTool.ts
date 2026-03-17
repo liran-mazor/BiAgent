@@ -9,11 +9,11 @@ export const WebSearchToolParams = z.object({
 
 export type WebSearchToolInput = z.infer<typeof WebSearchToolParams>;
 
-export const webSearchTool: Tool = {
+export const webSearchTool: Tool<typeof WebSearchToolParams> = {
   name: 'web_search',
   description: 'Search the web for current information, industry benchmarks, statistics, news, or any information not available in the database. Use this when you need external data to compare with internal metrics or answer questions requiring current information.',
   parameters: WebSearchToolParams,
-  execute: async (params: WebSearchToolInput): Promise<ToolResult> => {
+  execute: async (params: z.infer<typeof WebSearchToolParams>): Promise<ToolResult> => {
     try {
       // Initialize Tavily client
       const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
