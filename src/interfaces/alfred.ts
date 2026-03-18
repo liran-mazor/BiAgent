@@ -3,10 +3,9 @@ import { Agent } from '../agent/agent';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
 import { AUDIO_PATHS } from '../alfred/audioPaths';
-import { playSound, transcribeAudio, recordUserQuery, isCancelCommand, prepareSpeech, /*recordAndTranscribe*/ } from '../services/voiceService';
-import { sendState, sendSpeaking, sendListening, sendProcessing, sendChart } from '../services/faceService';
+import { playSound, transcribeAudio, recordUserQuery, isCancelCommand, prepareSpeech, /*recordAndTranscribe*/ } from '../alfred/voiceService';
+import { sendState, sendSpeaking, sendListening, sendProcessing, sendChart } from '../alfred/faceService';
 import { initializeTempDirectory } from '../utils/fileSystem';
-import { clearLastChartUrl, getLastChartUrl } from '../tools/chartTool';
 
 const WAKE_WORD_SENSITIVITY = 0.8;
 
@@ -65,8 +64,8 @@ async function startVoiceInterface() {
       // SPEAKING state - prepare TTS, send duration, play
       const { durationMs, play } = await prepareSpeech(response);
       sendSpeaking(durationMs);
-      const chartUrl = getLastChartUrl();
-      clearLastChartUrl();
+      const chartUrl = agent.getLastChartUrl();
+      agent.clearLastChartUrl();
       if (chartUrl) sendChart(chartUrl); // send before play() so chart appears as Alfred starts speaking
       await play();
 

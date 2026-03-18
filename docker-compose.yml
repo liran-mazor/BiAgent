@@ -13,6 +13,48 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
+  sql-agent:
+    build: ./agents/sql-agent
+    ports:
+      - "3001:3001"
+    env_file: .env
+    depends_on:
+      - postgres
+    profiles:
+      - agents
+
+  observability-agent:
+    build: ./agents/observability-agent
+    ports:
+      - "3002:3002"
+    env_file: .env
+    profiles:
+      - agents
+
+  analytics-agent:
+    build: ./agents/analytics-agent
+    ports:
+      - "3003:3003"
+    env_file: .env
+    profiles:
+      - agents
+
+  comms-agent:
+    build: ./agents/comms-agent
+    ports:
+      - "3004:3004"
+    env_file: .env
+    profiles:
+      - agents
+
+  research-agent:
+    build: ./agents/research-agent
+    ports:
+      - "3005:3005"
+    env_file: .env
+    profiles:
+      - agents
+
 
 volumes:
   postgres-data:

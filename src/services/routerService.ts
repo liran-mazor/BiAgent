@@ -32,7 +32,7 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
               },
               pattern: {
                 type: 'string',
-                enum: ['DIRECT', 'REACT'],
+                enum: ['FUNCTION_CALL', 'REACT'],
               },
               unavailable_response: {
                 type: 'string',
@@ -64,7 +64,7 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
 
     if (unavailable_response) {
       console.log(`\n  → UNAVAILABLE: ${unavailable_response}`);
-      return { model: MODEL.Simple, pattern: 'DIRECT', unavailableResponse: unavailable_response };
+      return { model: MODEL.Simple, pattern: 'FUNCTION_CALL', unavailableResponse: unavailable_response };
     }
 
     const model = complexity === 'SIMPLE' ? MODEL.Simple : MODEL.Smart;
@@ -72,6 +72,6 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
     return { model, pattern };
   } catch (error) {
     console.error('Router error, defaulting to COMPLEX/REACT:', error);
-    return { model: MODEL.Smart, pattern: 'REACT' };
+    return { model: MODEL.Smart, pattern: 'REACT' };  // safe fallback
   }
 }

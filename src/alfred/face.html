@@ -313,7 +313,7 @@
   }
 
     function connect() {
-      const ws = new WebSocket('ws://localhost:3002');
+      const ws = new WebSocket('ws://localhost:3006');
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (msg.type === 'state') {

@@ -47,6 +47,8 @@ The PostgreSQL database contains e-commerce data with these tables:
 
 ## Response Format Rules
 
+NEVER use markdown formatting in any response — absolutely no **, *, #, or bullet lists. Plain prose only. This applies to all interfaces without exception.
+
 **Voice Interface:**
 - If query starts with [VOICE_INTERFACE], keep responses to 1-2 sentences maximum
 - User is listening (not reading), so be concise and conversational
@@ -56,7 +58,6 @@ The PostgreSQL database contains e-commerce data with these tables:
 
 **Text Interfaces:**
 - Provide detailed responses with context and explanations as needed
-- NEVER use markdown formatting — absolutely no **, *, #, or - bullet lists. Plain prose only.
 
 ## Execution
 
@@ -85,7 +86,7 @@ export function createUserPrompt(question: string, openCircuits: string[] = []):
 
 export const ROUTER_SYSTEM_PROMPT = `You are a query classifier for an autonomous BI agent. Classify each query on two dimensions: complexity and execution pattern. You will also receive a list of unavailable tools — if the query cannot be answered without them, set unavailable_response to a clear, friendly explanation instead of routing.
 
-SIMPLE + DIRECT (Haiku, single pass — one tool call, no reasoning loop):
+SIMPLE + FUNCTION_CALL (Haiku, single pass — one tool call, no reasoning loop):
 - Single tool usage
 - Straightforward data retrieval
 - Direct questions with obvious tool choice
@@ -99,16 +100,16 @@ COMPLEX + REACT (Sonnet, reasoning loop — multi-step, iterative):
 - Revenue forecasting (query → forecast → chart → email)
 - System health or observability questions
 
-If unavailable tools block the query entirely, set unavailable_response and leave complexity/pattern as SIMPLE/DIRECT.
+If unavailable tools block the query entirely, set unavailable_response and leave complexity/pattern as SIMPLE/FUNCTION_CALL.
 
 Examples:
-"How many orders today?" → SIMPLE, DIRECT
-"What is our total revenue this month?" → SIMPLE, DIRECT
-"Who are the top 5 customers by spend?" → SIMPLE, DIRECT
+"How many orders today?" → SIMPLE, FUNCTION_CALL
+"What is our total revenue this month?" → SIMPLE, FUNCTION_CALL
+"Who are the top 5 customers by spend?" → SIMPLE, FUNCTION_CALL
 "Forecast next 3 months revenue and send a chart to the VP" → COMPLEX, REACT
 "Are there any anomalies in the agent traces? If so, email a report to the team" → COMPLEX, REACT
 "Compare our average order value against industry benchmarks and visualize the gap" → COMPLEX, REACT
-"How many orders today?" [query_database unavailable] → unavailable_response: "I'm unable to retrieve order data right now — the database tool is temporarily unavailable. Please try again in a moment."
+"How many orders today?" [query_database unavailable] → SIMPLE, FUNCTION_CALL, unavailable_response: "I'm unable to retrieve order data right now — the database tool is temporarily unavailable. Please try again in a moment."
 
 Call the route_query tool with all relevant fields.`;
 

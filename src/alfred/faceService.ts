@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 
-const wss = new WebSocketServer({ port: 3002 });
+const wss = new WebSocketServer({ port: 3006 });
 let faceClient: any = null;
 
 wss.on('connection', (ws) => {

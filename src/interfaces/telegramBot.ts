@@ -32,12 +32,11 @@ async function startBot() {
       await bot.sendChatAction(chatId, 'typing');
 
       const answer = await agent.run(question, chatId.toString());
-      
-      const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
-      if (chartUrlMatch) {
-        await bot.sendPhoto(chatId, chartUrlMatch[1]);
-      }
-      
+
+      const chartUrl = agent.getLastChartUrl();
+      agent.clearLastChartUrl();
+      if (chartUrl) await bot.sendPhoto(chatId, chartUrl);
+
       await bot.sendMessage(chatId, answer);
       
     } catch (error) {
@@ -70,12 +69,11 @@ async function startBot() {
       await bot.sendChatAction(chatId, 'typing');
      
       const answer = await agent.run(transcription.text, chatId.toString());
-      
-      const chartUrlMatch = answer.match(/Chart uploaded to S3: (https:\/\/[^\s]+)/);
-      if (chartUrlMatch) {
-        await bot.sendPhoto(chatId, chartUrlMatch[1]);
-      }
-      
+
+      const chartUrl = agent.getLastChartUrl();
+      agent.clearLastChartUrl();
+      if (chartUrl) await bot.sendPhoto(chatId, chartUrl);
+
       await bot.sendMessage(chatId, answer);
       
     } catch (error) {
