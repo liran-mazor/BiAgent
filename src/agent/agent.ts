@@ -8,8 +8,7 @@ import { A2ATool } from '../a2a/types.js';
 import { initializeA2ATools } from '../a2a/observabilityClient.js';
 import { initializeMCPClients, cleanupMCPClients } from '../mcp/bootstrap.js';
 import { mcpServers } from '../mcp/mcpServers.js';
-import { classifyQuery } from '../services/classifierService.js';
-import { getCachedResponse, cacheResponse } from '../services/cacheService';
+import { routeQuery } from '../services/routerService.js';
 import { summarizeHistory, formatSummaryForContext } from '../services/summaryService.js';
 import { getCircuitBreaker, getOpenCircuits } from '../utils/circuitBreaker';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema.js';
@@ -40,13 +39,12 @@ export class Agent {
 
     await Promise.all([this.initializeMCP(), this.initializeA2A()]);
 
-    const cachedResponse = await getCachedResponse(question);
-    if (cachedResponse) {
-      console.log(`\n${'─'.repeat(60)}\n📊  ${cachedResponse}\n`);
-      return cachedResponse;
-    }
+    const openCircuits = getOpenCircuits();
+    const { model, pattern, unavailableResponse } = await routeQuery(question, openCircuits);
 
-    const { model } = await classifyQuery(question);
+    if (unavailableResponse) {
+      return unavailableResponse;
+    }
 
     const formattedTools = this.formatToolsForClaude();
 
@@ -55,15 +53,19 @@ export class Agent {
     messages = await this.summarizeIfNeeded(messages, conversationId, question);
     messages = this.markHistoryCacheBoundary(messages);
 
-    messages.push({ role: 'user', content: createUserPrompt(question, getOpenCircuits()) });
+    messages.push({ role: 'user', content: createUserPrompt(question, openCircuits) });
+
+    if (pattern === 'DIRECT') {
+      return await this.runDirect(model, messages, formattedTools, question, conversationId);
+    }
 
     for (let iteration = 1; iteration <= this.maxIterations; iteration++) {
       console.log(`\n  ◈ Iteration ${iteration}`);
 
       const response = await this.callLLM(model, messages, formattedTools);
-      
+
       console.log(`    Stop reason : ${response.stop_reason}`);
-      
+
       this.trackTokenUsage(conversationId, response.usage);
 
       const toolUseBlocks = response.content.filter(
@@ -93,6 +95,48 @@ export class Agent {
       }
     }
     return `Max iterations (${this.maxIterations}) reached without final answer`;
+  }
+
+  private async runDirect(
+    model: string,
+    messages: Anthropic.MessageParam[],
+    formattedTools: any[],
+    question: string,
+    conversationId: string
+  ): Promise<string> {
+    console.log(`\n  ◈ Direct (single pass)`);
+
+    const response = await this.callLLM(model, messages, formattedTools);
+    this.trackTokenUsage(conversationId, response.usage);
+
+    const toolUseBlocks = response.content.filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+    );
+
+    if (toolUseBlocks.length === 0) {
+      return await this.handleFinalResponse(response, messages, question, conversationId);
+    }
+
+    for (const b of toolUseBlocks) {
+      console.log(`    Tool        : ${b.name}`);
+      console.log(`    Input       : ${JSON.stringify(b.input)}`);
+    }
+
+    const toolResults = await Promise.all(toolUseBlocks.map(block => this.executeTool(block)));
+
+    messages.push({ role: 'assistant', content: response.content });
+    messages.push({
+      role: 'user',
+      content: toolResults.map(({ tool_use_id, result }) => ({
+        type: 'tool_result' as const,
+        tool_use_id,
+        content: JSON.stringify(result),
+      })),
+    });
+
+    const finalResponse = await this.callLLM(model, messages, formattedTools);
+    this.trackTokenUsage(conversationId, finalResponse.usage);
+    return await this.handleFinalResponse(finalResponse, messages, question, conversationId);
   }
 
   private async callLLM(
@@ -280,7 +324,6 @@ export class Agent {
     this.conversationHistories.set(conversationId, messages);
   
     const finalResponse = textBlock?.text || 'No response generated';
-    await cacheResponse(question, finalResponse);
     console.log(`\n${'─'.repeat(60)}\n📊  Answer: ${finalResponse}\n`);
     return finalResponse;
   }

@@ -10,23 +10,22 @@ docker-compose up -d          # Start PostgreSQL
 npm run init-db               # Initialize DB schema (runs in agentiq-mcp-server)
 npm run seed                  # Seed sample data
 
-# Run BiAgent (convenience scripts start anomaly-detector-agent automatically)
+# Run BiAgent (convenience scripts start observability-agent automatically)
 npm start "query"             # Single query via CLI
 npm run interactive           # Conversational CLI
-npm run alfred                # Alfred voice (RPi) + AnomalyDetectorAgent together
-npm run telegram              # Telegram bot + AnomalyDetectorAgent together
-npm run dev                   # CLI + AnomalyDetectorAgent together
+npm run alfred                # Alfred voice (RPi) + ObservabilityAgent together
+npm run telegram              # Telegram bot + ObservabilityAgent together
+npm run dev                   # CLI + ObservabilityAgent together
 
 # Run components individually
 npm run voice                 # Alfred only (no companion agent)
 npm run bot                   # Telegram bot only
 
 # Companion services (if starting manually)
-cd ../anomaly-detector-agent && npm run dev  # A2A AnomalyDetectorAgent (port 3003)
-cd ../agentiq-mcp-server && npm run dev      # MCP server (STDIO-based)
+cd ../observability-agent && npm run dev  # A2A ObservabilityAgent (port 3003)
+cd ../agentiq-mcp-server && npm run dev   # MCP server (STDIO-based)
 
 # Maintenance
-npm run clear-cache           # Clear semantic cache
 npm run daily-seed            # Seed new daily data
 ```
 
@@ -36,22 +35,22 @@ TypeScript is run directly with `tsx` — no build step needed.
 
 BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/LangGraph). The agent loop lives in `src/agent/agent.ts`.
 
-### ReAct Loop (agent.ts `run()`)
-1. Semantic cache check (pgvector cosine similarity, threshold 0.15)
-2. `classifyQuery()` → Haiku decides: use Haiku (simple) or Sonnet (complex)
+### Query Lifecycle (agent.ts `run()`)
+1. `routeQuery()` → Haiku decides: model (Haiku/Sonnet), pattern (DIRECT/REACT), or returns `unavailableResponse` if required tools are down
+2. If `unavailableResponse` → return immediately, zero further LLM calls
 3. `formatToolsForClaude()` — called once per `run()`, reused across all iterations
-4. `manageContext()` — token count via API → summarize with Haiku if >170k tokens → mark prompt cache boundary
-5. `callLLM()` — Claude API with cached system prompt + tool definitions + history
-6. If tool calls → `executeTool()` in parallel (`Promise.all`) → circuit breaker for MCP/A2A tools
-7. `checkToolFailures()` → continue or bail
-8. `handleFinalResponse()` → store in session Map → cache result → return
+4. `summarizeIfNeeded()` → token count check → compress history with structured summary if >170k tokens → selective injection based on current query
+5. `markHistoryCacheBoundary()` → marks prompt cache slot 3
+6. `createUserPrompt()` → injects current date + circuit breaker warnings
+7. **DIRECT path** → `runDirect()`: one tool call + one final answer, flat context, no loop
+8. **REACT path** → iterative loop: `callLLM()` → parallel `executeTool()` with circuit breaker → repeat until final answer
 
 ### Three-Tier Tool Resolution
 - **Native** — in-process (chart, web_search, email, forecast_revenue)
 - **MCP** — STDIO protocol via `agentiq-mcp-server/` (query_database → PostgreSQL)
 - **A2A** — HTTP protocol via `observability-agent/` (query_observability, discovered dynamically from Agent Card)
 
-MCP tools are initialized via `initializeMCPClients()` (with retry — 5 attempts, 2s delay to handle race conditions when services start concurrently). A2A tools are lazily initialized inside the agent on the first `run()` call using a cached promise — interfaces no longer manage the A2A lifecycle. Reset-on-failure allows automatic retry.
+MCP tools are initialized via `initializeMCPClients()` (with retry — 5 attempts, 2s delay to handle race conditions when services start concurrently). A2A tools are lazily initialized inside the agent on the first `run()` call using a cached promise. Reset-on-failure allows automatic retry.
 
 ### Tool Inventory
 **Native (4):** `chart`, `email`, `web_search`, `forecast_revenue`
@@ -64,24 +63,19 @@ MCP tools are initialized via `initializeMCPClients()` (with retry — 5 attempt
 - Slot 3: Conversation history (`markHistoryCacheBoundary()` marks last message before new push)
 - Slot 4: Reserved for RAG
 
-### Semantic Cache
-OpenAI embeddings → pgvector cosine similarity search. Cache hit if distance < 0.15. Smart TTL: 5min (real-time), 1hr (recent), 7 days (historical), 24hr (default). Lives in `src/services/cacheService.ts`.
-
-### Intelligent Model Classification
-`classifierService.ts` sends the query to Haiku to classify complexity. Returns `CLAUDE.Haiku` or `CLAUDE.Sonnet` directly. ~70% cost reduction on typical workloads.
+### Query Router
+`routerService.ts` sends the query + open circuit breakers to Haiku via forced tool use (`route_query`). Returns:
+- `model`: Haiku (simple) or Sonnet (complex)
+- `pattern`: DIRECT (single pass) or REACT (iterative loop)
+- `unavailableResponse`: set when required tools are down — returned immediately, no further LLM calls
 
 ### Context Management
-Token count via API in `manageContext()`. Triggers summarization at 170k tokens (85% of 200k context limit). Compresses the old half of history using Haiku — no context truly lost. Lives in `summaryService.ts`. Token usage is tracked per-session (`tokenUsageBySession: Map<string, number>`) and reset when summarization triggers.
+Token count tracked per-conversation. Triggers structured summarization at 170k tokens (85% of 200k limit). Haiku compresses history via forced tool use into a `StructuredSummary` (topic, key_facts, resolved_entities, queries_run, open_questions). `formatSummaryForContext(summary, query)` selectively injects only relevant fields based on the current query. Lives in `summaryService.ts`.
 
 ### Circuit Breaker
 `src/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied only to MCP and A2A tools (native tools are in-process, no network). MCP config: 5s timeout; A2A config: 30s timeout (LangSmith fetch + LLM call). Both: 50% error threshold, 10s reset timeout.
 
-The circuit breaker is **closed-loop**: a module-level `openCircuits: Set<string>` is updated on every `open`/`close` event. `getOpenCircuits()` is called on every `run()` and the result is passed to `createUserPrompt()`. If any circuits are open, a warning is injected directly into the user message Claude receives:
-```
-⚠️ Service availability notice:
-- The following tools have open circuit breakers and are temporarily unavailable: [tool names]. Do not call them — use available alternatives or inform the user.
-```
-Claude reasons around the failure rather than calling a broken tool and getting a fallback error.
+The circuit breaker is **closed-loop**: a module-level `openCircuits: Set<string>` is updated on every `open`/`close` event. `getOpenCircuits()` is called once per `run()` and passed to both `routeQuery()` (for availability routing) and `createUserPrompt()` (for ReAct loop warnings).
 
 ### LangSmith Observability
 Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOpenAI`) in `src/config/clients.ts`. Zero agent code changes needed — all LLM calls traced automatically.
@@ -89,15 +83,14 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 ### Key Files
 | Path | Purpose |
 |------|---------|
-| `src/agent/agent.ts` | ReAct loop + all private orchestration methods |
-| `src/agent/prompts.ts` | All prompts: system, classifier, summary |
-| `src/agent/models.ts` | `CLAUDE` constants (Haiku/Sonnet model IDs) |
+| `src/agent/agent.ts` | Query lifecycle + all private orchestration methods |
+| `src/agent/prompts.ts` | All prompts: system, router, summary |
+| `src/agent/models.ts` | `MODEL` constants (Haiku/Sonnet model IDs) |
 | `src/config/clients.ts` | Shared Anthropic + OpenAI singletons, LangSmith-wrapped |
 | `src/mcp/bootstrap.ts` | `initializeMCPClients()` |
 | `src/a2a/observabilityClient.ts` | `initializeA2ATools()` + A2A discovery |
-| `src/services/cacheService.ts` | Semantic cache + pgvector |
-| `src/services/classifierService.ts` | Haiku classifier → returns model string |
-| `src/services/summaryService.ts` | Token-aware history summarization |
+| `src/services/routerService.ts` | Haiku router → model + pattern + availability |
+| `src/services/summaryService.ts` | Structured history summarization + selective injection |
 | `src/utils/circuitBreaker.ts` | opossum circuit breaker registry (MCP/A2A only) |
 | `src/tools/chartTool.ts` | Chart.js + S3 upload; exports `getLastChartUrl`/`clearLastChartUrl` |
 | `src/tools/forecastTool.ts` | Native linear trend forecasting |
@@ -151,7 +144,7 @@ LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 LANGSMITH_API_KEY
 LANGSMITH_PROJECT=BiAgent
-ANOMALY_AGENT_URL=http://localhost:3003
+OBSERVABILITY_AGENT_URL=http://localhost:3003
 PICOVOICE_ACCESS_KEY     # Alfred only
 GOOGLE_APPLICATION_CREDENTIALS  # Alfred TTS only
 ```
