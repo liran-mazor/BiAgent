@@ -1,4 +1,6 @@
 import readline from 'readline';
+import { validateEnv } from '../utils/validateEnv.js';
+validateEnv();
 import { Agent } from '../biagent/agent';
 
 export async function runInteractive() {
@@ -39,4 +41,14 @@ export async function runInteractive() {
   };
 
   askQuestion();
+
+  async function shutdown(signal: string): Promise<void> {
+    console.log(`\n${signal} received — shutting down`);
+    rl.close();
+    await agent.cleanup();
+    process.exit(0);
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT',  () => shutdown('SIGINT'));
 }

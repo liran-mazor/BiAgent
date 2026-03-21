@@ -1,17 +1,16 @@
 /**
- * Synthesis — Haiku reads the top reranked chunks and produces a grounded answer.
+ * Synthesis — gpt-4o-mini reads the top reranked chunks and produces a grounded answer.
  * Pure library: no side effects, no CLI code. Imported by index.ts pipeline.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import type { RetrievedChunk } from './retriever.js';
-
-const MODEL = 'claude-haiku-4-5-20251001';
+import { SYNTHESIS_MODEL } from '../config.js';
 
 // Lazy — instantiated on first call so dotenv has already run by then.
-let _client: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (!_client) _client = new Anthropic();
+let _client: OpenAI | null = null;
+function getClient(): OpenAI {
+  if (!_client) _client = new OpenAI();
   return _client;
 }
 
@@ -45,22 +44,16 @@ export async function synthesize(
     .map((c, i) => `[${i + 1}] Source: ${c.source}\n${c.content}`)
     .join('\n\n');
 
-  const response = await getClient().messages.create({
-    model: MODEL,
+  const response = await getClient().chat.completions.create({
+    model: SYNTHESIS_MODEL,
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
     messages: [
-      {
-        role: 'user',
-        content: `Context:\n\n${contextBlock}\n\nQuestion: ${question}`,
-      },
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: `Context:\n\n${contextBlock}\n\nQuestion: ${question}` },
     ],
   });
 
-  const answer = response.content
-    .filter(b => b.type === 'text')
-    .map(b => b.text)
-    .join('');
+  const answer = response.choices[0].message.content ?? 'No response generated.';
 
   // Deduplicate sources — multiple chunks may come from the same file
   const sources = [...new Set(chunks.map(c => c.source))];

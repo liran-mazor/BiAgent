@@ -10,8 +10,8 @@ import { mcpServers } from '../mcp/mcpServers.js';
 import { A2ATool } from '../a2a/types.js';
 import { initializeA2ATools } from '../a2a/a2aClient.js';
 import { a2aAgents } from '../a2a/a2aServers.js';
-import { routeQuery } from '../services/routerService.js';
-import { summarizeHistory, formatSummaryForContext } from '../services/summaryService.js';
+import { routeQuery } from '../services/router.js';
+import { summarizeHistory, formatSummaryForContext } from '../services/summarizer.js';
 import { getCircuitBreaker, getOpenCircuits } from '../utils/circuitBreaker';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema.js';
 
@@ -49,7 +49,7 @@ export class Agent {
     console.log(`\n🤔  Question: ${question}\n`);
 
     await this.initializeMCP();
-    await this.initializeA2A(); // can be removed
+    await this.initializeA2A();
 
     const openCircuits = getOpenCircuits();
     const route = await routeQuery(question, openCircuits);
@@ -85,12 +85,12 @@ export class Agent {
     );
 
     if (toolUseBlocks.length === 0) {
-      return await this.handleFinalResponse(response, messages, question, conversationId);
+      return await this.handleFinalResponse(response, messages, conversationId);
     }
 
     for (const b of toolUseBlocks) {
       console.log(`    Tool        : ${b.name}`);
-      console.log(`    Input       : ${JSON.stringify(b.input)}`);
+      console.log(`    Input       : ${JSON.stringify(b.input)}\n`);
     }
 
     const toolResults = await Promise.all(toolUseBlocks.map(block => this.executeTool(block)));
@@ -107,7 +107,7 @@ export class Agent {
 
     const finalResponse = await this.callLLM(MODEL.Simple, messages, formattedTools);
     this.trackTokenUsage(conversationId, finalResponse.usage);
-    return await this.handleFinalResponse(finalResponse, messages, question, conversationId);
+    return await this.handleFinalResponse(finalResponse, messages, conversationId);
   }
 
   private async runReact(
@@ -128,7 +128,7 @@ export class Agent {
       );
 
       if (toolUseBlocks.length === 0) {
-        return await this.handleFinalResponse(response, messages, question, conversationId);
+        return await this.handleFinalResponse(response, messages, conversationId);
       }
 
       for (const b of toolUseBlocks) {
@@ -331,18 +331,17 @@ export class Agent {
   private async handleFinalResponse(
     response: Anthropic.Message,
     messages: Anthropic.MessageParam[],
-    question: string,
     conversationId: string
   ): Promise<string> {
-    const textBlock = response.content.find(
-      (block): block is Anthropic.TextBlock => block.type === 'text'
-    );
-
     messages.push({ role: 'assistant', content: response.content });
     this.conversationHistories.set(conversationId, messages);
-
+    
+    const textBlock = response.content.find(
+    (block): block is Anthropic.TextBlock => block.type === 'text'
+    );
     const finalResponse = textBlock?.text || 'No response generated';
     console.log(`\n${'─'.repeat(60)}\n📊  Answer: ${finalResponse}\n`);
+
     return finalResponse;
   }
 

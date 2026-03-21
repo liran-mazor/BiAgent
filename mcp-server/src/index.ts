@@ -1,98 +1,37 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import pool from './db.js';
 
-const QueryDatabaseSchema = z.object({
-  query: z.string().describe('SQL SELECT query to execute'),
+const server = new McpServer({
+  name: 'agentiq-sql-server',
+  version: '1.0.0',
 });
 
-const server = new Server(
-  {
-    name: 'agentiq-sql-server',
-    version: '1.0.0',
-  },
-  {
-    capabilities: {
-      tools: {},
-    },
-  }
-);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return {
-    tools: [
-      {
-        name: 'query_database',
-        description:
-          'Execute a SELECT SQL query against the PostgreSQL database. Returns query results as JSON array.',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'SQL SELECT query to execute',
-            },
-          },
-          required: ['query'],
-        },
-      },
-    ],
-  };
-});
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-
-  if (request.params.name === 'query_database') {
-    const args = QueryDatabaseSchema.parse(request.params.arguments);
-
-    const trimmedQuery = args.query.trim().toUpperCase();
-    if (!trimmedQuery.startsWith('SELECT')) {
+// Cast avoids TS2589 (type instantiation too deep) in McpServer.tool() generics — SDK 1.26.x known issue
+(server as any).tool(
+  'query_database',
+  'Execute a SELECT SQL query against the PostgreSQL database. Returns query results as JSON array.',
+  { query: z.string().describe('SQL SELECT query to execute') },
+  async ({ query }: { query: string }) => {
+    if (!query.trim().toUpperCase().startsWith('SELECT')) {
       return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              error: 'Only SELECT queries are allowed',
-            }),
-          },
-        ],
+        content: [{ type: 'text', text: JSON.stringify({ error: 'Only SELECT queries are allowed' }) }],
       };
     }
 
     try {
-      const result = await pool.query(args.query);
+      const result = await pool.query(query);
       return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              rows: result.rows,
-              rowCount: result.rowCount,
-            }),
-          },
-        ],
+        content: [{ type: 'text', text: JSON.stringify({ rows: result.rows, rowCount: result.rowCount }) }],
       };
     } catch (error: any) {
       return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              error: error.message,
-            }),
-          },
-        ],
+        content: [{ type: 'text', text: JSON.stringify({ error: error.message }) }],
       };
     }
   }
-
-  throw new Error(`Unknown tool: ${request.params.name}`);
-});
+);
 
 async function main() {
   const transport = new StdioServerTransport();

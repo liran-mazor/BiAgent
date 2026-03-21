@@ -3,11 +3,24 @@
  * Pure library: no side effects, no CLI code. Imported by index.ts pipeline.
  */
 
-import type { Pool } from 'pg';
-import type OpenAI from 'openai';
+import OpenAI from 'openai';
+import { Pool } from 'pg';
+import { EMBEDDING_MODEL, DB_CONFIG } from '../config.js';
 
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const TOP_K = 10; // candidates before reranking
+const TOP_K = 20; // candidates before reranking
+
+// Lazy — instantiated on first call so dotenv has already run by then.
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) _openai = new OpenAI();
+  return _openai;
+}
+
+let _pool: Pool | null = null;
+function getPool(): Pool {
+  if (!_pool) _pool = new Pool(DB_CONFIG);
+  return _pool;
+}
 
 export interface RetrievedChunk {
   content:     string;
@@ -52,16 +65,14 @@ function inferFilters(question: string): Filters {
 
 export async function retrieve(
   question: string,
-  pool: Pool,
-  openai: OpenAI,
+  embeddingModel: string = EMBEDDING_MODEL,
 ): Promise<RetrievedChunk[]> {
   // 1. Embed the question — must use the same model used at index time
-  const embeddingResponse = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
+  const embeddingResponse = await getOpenAI().embeddings.create({
+    model: embeddingModel,
     input: question,
   });
-  const queryVector = embeddingResponse.data[0].embedding;
-  const vectorLiteral = `[${queryVector.join(',')}]`;
+  const vectorLiteral = `[${embeddingResponse.data[0].embedding.join(',')}]`;
 
   // 2. Infer pre-filters from question keywords
   const filters = inferFilters(question);
@@ -70,7 +81,7 @@ export async function retrieve(
   // `<=>` is pgvector cosine distance (0 = identical, 2 = opposite)
   // `1 - distance` converts to similarity (1 = identical)
   // NULL params disable the filter clause
-  const { rows } = await pool.query<RetrievedChunk & { similarity: number }>(
+  const { rows } = await getPool().query<RetrievedChunk & { similarity: number }>(
     `SELECT
        content,
        source,

@@ -4,7 +4,8 @@
   "main": "index.js",
   "workspaces": [
     "mcp-server",
-    "agents/knowledge-agent"
+    "agents/knowledge-agent",
+    "gateway"
   ],
   "scripts": {
     "start": "tsx src/interfaces/index.ts",
@@ -16,7 +17,8 @@
     "init-db": "npm run init-db -w mcp-server",
     "seed": "npm run seed -w mcp-server",
     "daily-seed": "npm run daily-seed -w mcp-server",
-    "agent": "npm run dev -w agents/knowledge-agent"
+    "agent": "npm run dev -w agents/knowledge-agent",
+    "gateway": "npm run dev -w agents/gateway"
   },
   "keywords": [],
   "author": "",
@@ -36,6 +38,8 @@
     "chartjs-node-canvas": "^5.0.0",
     "chartjs-plugin-datalabels": "^2.2.0",
     "dotenv": "^17.2.3",
+    "express-rate-limit": "^8.3.1",
+    "jsonwebtoken": "^9.0.2",
     "langsmith": "^0.5.4",
     "mathjs": "^14.5.2",
     "mic": "^2.1.2",
@@ -48,6 +52,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^25.0.9",
     "@types/node-telegram-bot-api": "^0.64.13",
     "@types/opossum": "^8.1.9",

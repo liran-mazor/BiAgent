@@ -10,15 +10,16 @@ docker-compose up -d          # Start PostgreSQL
 npm run init-db               # Initialize DB schema (runs in mcp-server)
 npm run seed                  # Seed sample data
 
-# Run BiAgent
-npm run agent                 # Start knowledge-agent (required for RAG queries)
+# Run BiAgent (3 terminals)
+npm run agent                 # Start knowledge-agent (port 3001)
+npm run gateway               # Start API gateway (port 3000)
 npm start "query"             # Single query via CLI
 npm run interactive           # Conversational CLI
 npm run dev                   # Conversational CLI (alias)
 npm run voice                 # Alfred voice interface (RPi)
 npm run bot                   # Telegram bot
 
-# knowledge-agent ingestion (run once, or after docs change)
+# knowledge-agent ingestion (run once, or after docs/ change)
 npm run ingest -w agents/knowledge-agent
 
 # Maintenance
@@ -44,7 +45,7 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 ### Three-Tier Tool Resolution
 - **Native** — in-process (chart, email, web_search, forecast_revenue). No circuit breaker — fail fast, no network risk.
 - **MCP** — STDIO via `mcp-server/` (query_database → PostgreSQL). Circuit breaker: 5s timeout.
-- **A2A** — HTTP (knowledge-agent on port 3001). Circuit breaker: 30s timeout.
+- **A2A** — HTTP via gateway (port 3000) → knowledge-agent (port 3001). Circuit breaker: 30s timeout.
 
 ### Tool Inventory
 | Tool | Protocol | Notes |
@@ -54,7 +55,15 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 | `forecast_revenue` | Native | Linear trend forecasting |
 | `email` | Native | SMTP via nodemailer |
 | `web_search` | Native | Tavily search API |
-| `query_knowledge` | A2A | RAG pipeline — pgvector + Cohere rerank + Haiku synthesis |
+| `query_knowledge` | A2A | RAG pipeline — pgvector + Cohere rerank + gpt-4o-mini synthesis |
+
+### Gateway
+`gateway/src/index.ts` — Express API gateway on port 3000. All A2A traffic routes through it.
+- JWT authentication on `POST /:agent/tasks` (shared `JWT_SECRET`)
+- Rate limiting: 60 req/min per IP (configurable via env)
+- Route registry: `UPSTREAM_AGENTS` maps path prefix → upstream URL
+- Agent Card (`GET /:agent/.well-known/agent.json`) — public, no auth
+- Adding a new A2A agent = one line in `UPSTREAM_AGENTS`
 
 ### Prompt Caching (3/4 slots used)
 - Slot 1: System prompt (`cache_control: ephemeral` on system content block)
@@ -63,12 +72,12 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 - Slot 4: Reserved (semantic cache — Phase 3)
 
 ### Query Router
-`routerService.ts` sends the query + open circuit breakers to Haiku via forced tool use (`route_query`). Returns a discriminated union (`RouteResult`):
+`src/services/router.ts` sends the query + open circuit breakers to Haiku via forced tool use (`route_query`). Returns a discriminated union (`RouteResult`):
 - `{ available: true, pattern: 'FUNCTION_CALL' | 'REACT' }` — model derived from pattern (FUNCTION_CALL → Haiku, REACT → Sonnet)
 - `{ available: false, response: string }` — returned immediately when required tools are down, zero further LLM calls
 
 ### Context Management
-Token count tracked per-conversation. Triggers structured summarization at 170k tokens (85% of 200k limit). Haiku compresses history via forced tool use into a `StructuredSummary` (topic, key_facts, resolved_entities, queries_run, open_questions). `formatSummaryForContext(summary, query)` selectively injects only relevant fields based on the current query. Lives in `summaryService.ts`.
+Token count tracked per-conversation. Triggers structured summarization at 170k tokens (85% of 200k limit). Haiku compresses history via forced tool use into a `StructuredSummary` (topic, key_facts, resolved_entities, queries_run, open_questions). `formatSummaryForContext(summary, query)` selectively injects only relevant fields based on the current query. Lives in `src/services/summarizer.ts`.
 
 ### Circuit Breaker
 `src/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied to MCP and A2A tools only (native tools are in-process). MCP: 5s timeout. A2A: 30s timeout. Both: 50% error threshold, 10s reset.
@@ -90,19 +99,22 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | `src/config/clients.ts` | Shared Anthropic + OpenAI singletons, LangSmith-wrapped |
 | `src/tools/` | Native tools: chart, email, web_search, forecast_revenue |
 | `src/mcp/` | MCP client, bootstrap, server config |
-| `src/a2a/a2aClient.ts` | `initializeA2ATools()` — fetches Agent Cards, registers tasks as tools |
-| `src/a2a/a2aServers.ts` | A2A agent registry — knowledge-agent at port 3001 |
-| `agents/knowledge-agent/src/index.ts` | A2A server — Agent Card + `/tasks` handler |
+| `src/a2a/a2aClient.ts` | `initializeA2ATools()` — signs JWT, fetches Agent Cards, registers tasks |
+| `src/a2a/a2aServers.ts` | A2A agent registry — points to gateway |
+| `src/services/router.ts` | Haiku router → `RouteResult` (pattern + availability) |
+| `src/services/summarizer.ts` | Structured history summarization + selective injection |
+| `src/utils/circuitBreaker.ts` | opossum circuit breaker registry (MCP + A2A only) |
+| `src/utils/validateEnv.ts` | Required env var validation — exits on startup if missing |
+| `src/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
+| `gateway/src/index.ts` | API gateway — JWT auth + rate limiting + proxy |
+| `mcp-server/` | STDIO MCP server — PostgreSQL query_database tool |
+| `agents/knowledge-agent/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
 | `agents/knowledge-agent/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
 | `agents/knowledge-agent/src/lib/retriever.ts` | Embed query → pgvector cosine search + pre-filters |
 | `agents/knowledge-agent/src/lib/reranker.ts` | Cohere cross-encoder reranking |
-| `agents/knowledge-agent/src/lib/synthesizer.ts` | Haiku synthesis over reranked chunks |
+| `agents/knowledge-agent/src/lib/synthesizer.ts` | gpt-4o-mini synthesis over reranked chunks |
+| `agents/knowledge-agent/src/config.ts` | Model names + DB config — single source of truth |
 | `agents/knowledge-agent/src/scripts/ingest.ts` | Offline ingestion — LLM metadata + embed + upsert |
-| `src/services/routerService.ts` | Haiku router → `RouteResult` (pattern + availability) |
-| `src/services/summaryService.ts` | Structured history summarization + selective injection |
-| `src/utils/circuitBreaker.ts` | opossum circuit breaker registry (MCP + A2A only) |
-| `src/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
-| `mcp-server/` | STDIO MCP server — PostgreSQL query_database tool |
 
 ### Alfred Voice Interface
 Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
@@ -112,7 +124,7 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 **Chart display:** After each query, `agent.getLastChartUrl()` is checked. If a chart was generated, `faceService.sendChart(url)` pushes it via WebSocket to `face.html` as a fullscreen overlay — sent *before* `play()` so it appears as Alfred starts speaking. `agent.clearLastChartUrl()` prevents stale charts across queries.
 
 **Key details:**
-- Wake word model: `src/voice/audio/alfred.ppn` (custom-trained Picovoice)
+- Wake word model: `src/alfred/audio/alfred.ppn` (custom-trained Picovoice)
 - Pre-generated audio: `confirmation.mp3` ("All ears"), `ack.mp3` ("On it")
 - RPi timing: 950ms delays on mouth animations; 400ms after recorder stop before confirmation plays
 - Cancel: saying "stop" after wake word → `continue` back to listening loop
@@ -120,12 +132,12 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 
 ### Interfaces
 - `src/interfaces/index.ts` — CLI single query
-- `src/interfaces/interactive.ts` — conversational CLI with session memory
+- `src/interfaces/interactive.ts` — conversational CLI with session memory + graceful shutdown
 - `src/interfaces/telegramBot.ts` — Telegram bot (text + voice)
 - `src/interfaces/alfred.ts` — Alfred wake word loop + chart display
 
 ### Project Description
-BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + a knowledge-agent A2A service that answers questions from internal documents via a full RAG pipeline (pgvector + Cohere rerank + Haiku synthesis). Two agents, two processes, one HTTP bridge.
+BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + a knowledge-agent A2A service that answers questions from internal documents via a full RAG pipeline (pgvector + Cohere rerank + gpt-4o-mini synthesis). All A2A traffic routes through an Express gateway with JWT auth and rate limiting. Two agents, one gateway, one HTTP bridge.
 
 ### Pitch Presentation
 `pitch/biagent-presentation.html` — standalone 3-slide reveal-style HTML. No build step; open directly in a browser.
@@ -147,12 +159,19 @@ BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + a kno
 ANTHROPIC_API_KEY
 OPENAI_API_KEY
 TAVILY_API_KEY
+COHERE_API_KEY
+JWT_SECRET                   # Shared secret for gateway JWT auth
+GATEWAY_URL=http://localhost:3000
+KNOWLEDGE_AGENT_URL=http://localhost:3001
 TELEGRAM_BOT_TOKEN
 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION / S3_BUCKET_NAME
 LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 LANGSMITH_API_KEY
 LANGSMITH_PROJECT=BiAgent
-PICOVOICE_ACCESS_KEY     # Alfred only
+PICOVOICE_ACCESS_KEY         # Alfred only
 GOOGLE_APPLICATION_CREDENTIALS  # Alfred TTS only
+RAG_TIMEOUT_MS=30000         # Optional — default 30s
+RATE_LIMIT_WINDOW_MS=60000   # Optional — default 1 minute
+RATE_LIMIT_MAX_REQUESTS=60   # Optional — default 60 req/min
 ```

@@ -1,26 +1,13 @@
 import { config } from 'dotenv';
 config({ path: '../../.env' }); // npm workspace cwd = agents/knowledge-agent, root .env is 2 levels up
+import { validateEnv } from './validateEnv.js';
+validateEnv();
 import express from 'express';
-import { Pool } from 'pg';
-import OpenAI from 'openai';
 import { retrieve } from './lib/retriever.js';
 import { rerank } from './lib/reranker.js';
 import { synthesize } from './lib/synthesizer.js';
 
 const PORT = parseInt(process.env.KNOWLEDGE_AGENT_PORT ?? '3001');
-
-// ── Clients ───────────────────────────────────────────────────────────────────
-// Created once at startup, reused across all requests.
-
-const pool = new Pool({
-  host:     process.env.POSTGRES_HOST     ?? 'localhost',
-  port:     parseInt(process.env.POSTGRES_PORT ?? '5432'),
-  user:     process.env.POSTGRES_USER     ?? 'postgres',
-  password: process.env.POSTGRES_PASSWORD ?? 'postgres',
-  database: process.env.POSTGRES_DB       ?? 'postgres',
-});
-
-const openai = new OpenAI();
 
 // ── Express ───────────────────────────────────────────────────────────────────
 
@@ -74,8 +61,15 @@ app.post('/tasks', async (req, res) => {
     return;
   }
 
+  const TIMEOUT_MS = parseInt(process.env.RAG_TIMEOUT_MS ?? '30000');
+
   try {
-    const result = await handleQueryKnowledge(question);
+    const result = await Promise.race([
+      handleQueryKnowledge(question),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`RAG pipeline timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+      ),
+    ]);
     res.json({ status: 'completed', data: result });
   } catch (err: any) {
     console.error('query_knowledge failed:', err.message);
@@ -86,25 +80,39 @@ app.post('/tasks', async (req, res) => {
 // ── RAG Pipeline ──────────────────────────────────────────────────────────────
 
 async function handleQueryKnowledge(question: string) {
-  console.log(`  question: "${question}"`);
+  const short = question.length > 80 ? question.slice(0, 77) + '...' : question;
+  console.log(`\n[RAG] "${short}"`);
 
-  // Step 1 — embed question + vector search → top 10 candidates
-  const candidates = await retrieve(question, pool, openai);
-  console.log(`  retrieved: ${candidates.length} candidates`);
+  // Step 1 — embed question + vector search → top-K candidates
+  const candidates = await retrieve(question);
+  console.log(`      retrieve : ${candidates.length} candidates`);
 
   // Step 2 — cross-encoder reranking → top 5
   const reranked = await rerank(question, candidates);
-  console.log(`  reranked: ${reranked.length} chunks`);
+  console.log(`      rerank   : ${reranked.length} chunks`);
 
-  // Step 3 — Haiku reads chunks, produces grounded answer
+  // Step 3 — Haiku reads sorted chunks → answer
   const result = await synthesize(question, reranked);
-  console.log(`  sources: ${result.sources.join(', ')}`);
+  console.log(`      sources  : ${result.sources.join(', ')}`);
 
   return result;
 }
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// ── Start + Graceful shutdown ──────────────────────────────────────────────────
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`knowledge-agent running on port ${PORT}`);
 });
+
+function shutdown(signal: string): void {
+  console.log(`\n${signal} received — shutting down`);
+  server.close(() => {
+    console.log('knowledge-agent stopped');
+    process.exit(0);
+  });
+  // Force exit if in-flight requests don't finish within 10s
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));

@@ -128,6 +128,12 @@ Observability: every LLM call traced in LangSmith via `wrapSDK` — zero agent c
 
 ---
 
+## What's Next
+
+**Persona-driven memory.** The current summarizer compresses conversation history at a fixed threshold with a fixed keepCount. The next layer: a persistent `user_memory` table keyed by user ID. On first interaction the user declares their role — finance, analyst, executive. That persona is stored and injected into every subsequent session. The summarizer becomes dynamic: an analyst querying for raw numbers gets aggressive compression and a tight context window; a finance manager tracking a multi-week planning thread gets a generous one. One DB row per user, one Haiku write on session start, zero ongoing cost.
+
+---
+
 ## One Line
 
 The SQL agent tells you what happened. The knowledge agent tells you what it means. BiAgent gives you both.

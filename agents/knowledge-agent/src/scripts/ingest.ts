@@ -5,7 +5,7 @@
  *   npm run ingest -w agents/knowledge-agent
  *
  * Scans docs/ for .md files. For each file:
- *   1. Calls Haiku (tool_choice forced) to extract {title, doc_type, year}
+ *   1. Calls gpt-4o-mini (tool_choice forced) to extract {title, doc_type, year}
  *   2. Chunks the document via lib/chunker
  *   3. Embeds all chunks via text-embedding-3-small
  *   4. Upserts into pgvector (idempotent: deletes existing rows first)
@@ -19,11 +19,9 @@ import { Pool } from 'pg';
 import OpenAI from 'openai';
 import { z } from 'zod';
 import { chunkDocument } from '../lib/chunker.js';
+import { EMBEDDING_MODEL, EXTRACTION_MODEL, DB_CONFIG } from '../config.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-
-const EMBEDDING_MODEL = 'text-embedding-3-small';
-const EXTRACTION_MODEL = 'gpt-4o-mini';
 const EMBEDDING_BATCH_SIZE = 2000; // OpenAI limit is 2048
 const DOCS_DIR = path.resolve('../../docs'); // relative to agents/knowledge-agent/ cwd
 const PREVIEW_CHARS = 600; // chars sent to Haiku for metadata extraction
@@ -32,13 +30,7 @@ const PREVIEW_CHARS = 600; // chars sent to Haiku for metadata extraction
 
 const openai = new OpenAI();
 
-const pool = new Pool({
-  host:     process.env.POSTGRES_HOST     ?? 'localhost',
-  port:     parseInt(process.env.POSTGRES_PORT ?? '5432'),
-  user:     process.env.POSTGRES_USER     ?? 'postgres',
-  password: process.env.POSTGRES_PASSWORD ?? 'postgres',
-  database: process.env.POSTGRES_DB       ?? 'postgres',
-});
+const pool = new Pool(DB_CONFIG);
 
 // ── Metadata extraction ───────────────────────────────────────────────────────
 

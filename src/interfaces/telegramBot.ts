@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { validateEnv } from '../utils/validateEnv.js';
+validateEnv();
 import fs from 'node:fs';
 import path from 'node:path';
 import OpenAI from 'openai';

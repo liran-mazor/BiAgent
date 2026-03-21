@@ -1,8 +1,22 @@
+import jwt from 'jsonwebtoken';
 import { A2ATool } from './types.js';
 import { A2AAgentConfig } from './a2aServers.js';
 
 const RETRY_ATTEMPTS = 5;
 const RETRY_DELAY_MS = 2000;
+
+// ── JWT ───────────────────────────────────────────────────────────────────────
+// Generates a short-lived token signed with the shared secret.
+// The gateway verifies this on every /tasks call.
+// Token is generated per-call — no stale token risk.
+
+function generateToken(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET is not set');
+  return jwt.sign({ service: 'biagent' }, secret, { expiresIn: '5m' });
+}
+
+// ── Agent Card discovery ──────────────────────────────────────────────────────
 
 async function fetchAgentCardWithRetry(url: string): Promise<any> {
   for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
@@ -18,6 +32,8 @@ async function fetchAgentCardWithRetry(url: string): Promise<any> {
   }
 }
 
+// ── Tool initialization ───────────────────────────────────────────────────────
+
 export async function initializeA2ATools(agents: A2AAgentConfig[]): Promise<A2ATool[]> {
   const allTools: A2ATool[] = [];
 
@@ -29,17 +45,22 @@ export async function initializeA2ATools(agents: A2AAgentConfig[]): Promise<A2AT
         description: task.description,
         input_schema: task.input_schema,
         execute: async (input: any) => {
+          // Fresh JWT per call — short-lived token sent to gateway for verification
+          const token = generateToken();
           const res = await fetch(`${url}/tasks`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task: task.name, input })
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ task: task.name, input }),
           });
           if (!res.ok) {
             const body = await res.text().catch(() => '(unreadable)');
             throw new Error(`A2A task failed: ${res.statusText} — ${body}`);
           }
           return res.json();
-        }
+        },
       }));
       allTools.push(...tools);
     } catch (error: any) {
