@@ -51,6 +51,51 @@ CREATE TABLE order_items (
   price DECIMAL(10, 2) NOT NULL
 );
 
+-- Documents table (RAG knowledge base)
+CREATE TABLE IF NOT EXISTS documents (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content     TEXT NOT NULL,     -- "[doc title | doc_type]: " prepended + chunk text (what gets embedded)
+  embedding   VECTOR(1536),
+  source      TEXT NOT NULL,     -- filename e.g. "2026-annual-plan.md"
+  doc_type    TEXT NOT NULL,     -- "strategy" | "policy" | "board_meeting" | "performance_review"
+  year        INTEGER,           -- document year for temporal pre-filtering (2025, 2026)
+  chunk_index INTEGER NOT NULL DEFAULT 0, -- position in document, used to re-sort chunks before synthesis
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_embedding
+  ON documents USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
+
+CREATE INDEX IF NOT EXISTS idx_documents_doc_type ON documents(doc_type);
+CREATE INDEX IF NOT EXISTS idx_documents_year ON documents(year);
+
+-- Monthly revenue and order targets per category (from annual plan docs)
+CREATE TABLE monthly_targets (
+  id            SERIAL PRIMARY KEY,
+  year          INTEGER NOT NULL,
+  month         INTEGER NOT NULL CHECK (month >= 1 AND month <= 12),
+  category      VARCHAR(100) NOT NULL,
+  revenue_target DECIMAL(10, 2) NOT NULL,
+  orders_target  INTEGER,
+  UNIQUE (year, month, category)
+);
+
+CREATE INDEX IF NOT EXISTS idx_monthly_targets_year_month ON monthly_targets(year, month);
+CREATE INDEX IF NOT EXISTS idx_monthly_targets_category ON monthly_targets(category);
+
+-- Returns table
+CREATE TABLE returns (
+  id            SERIAL PRIMARY KEY,
+  order_item_id INTEGER REFERENCES order_items(id),
+  reason        VARCHAR(50) NOT NULL,
+  refund_amount DECIMAL(10, 2) NOT NULL,
+  created_at    TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_returns_created ON returns(created_at);
+CREATE INDEX IF NOT EXISTS idx_returns_reason ON returns(reason);
+
 -- Reviews table
 CREATE TABLE reviews (
   id SERIAL PRIMARY KEY,

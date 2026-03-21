@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import OpenAI from 'openai';
 import TelegramBot from 'node-telegram-bot-api';
-import { Agent } from '../agent/agent';
+import { Agent } from '../biagent/agent';
 import { downloadFile, initializeTempDirectory } from '../utils/fileSystem';
 
 initializeTempDirectory();

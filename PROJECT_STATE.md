@@ -77,14 +77,58 @@ A handful of improvements that didn't warrant their own phases but changed how t
 
 ---
 
+## Phase 7 — Full multi-agent architecture
+
+The three-tier tool resolution (native → MCP → A2A) was a design smell. Native tools lived in the same process as the orchestrator, which meant the orchestrator's context window carried all their dependencies — chart libraries, email clients, forecast logic. The right model is: the orchestrator routes, agents execute.
+
+Moved everything to A2A. Each former tool became a standalone agent under `agents/`:
+- `sql-agent` (port 3001) — wraps the MCP server internally, exposes `query_database` over HTTP
+- `observability-agent` (port 3002) — moved from the sibling directory into the monorepo
+- `analytics-agent` (port 3003) — `chart` + `forecast_revenue`
+- `comms-agent` (port 3004) — `email`
+- `research-agent` (port 3005) — `web_search`
+
+The orchestrator now has zero tools of its own. It discovers all capabilities at startup from Agent Cards and delegates everything over HTTP. The `src/` directory shrunk significantly — no tool code, no MCP client, no native implementations.
+
+Structured the repo as an npm workspace (`agents/`, `mcp-server/`) so `npm install` from root installs everything and scripts can target individual workspaces.
+
+**Execution patterns hardened.** The router previously returned three things: model, pattern, and an optional unavailable response — a loose interface that mixed concerns. Replaced with a discriminated union (`RouteResult`): either `{ available: true, pattern }` or `{ available: false, response }`. Model selection moved out of the router entirely — it's not a routing decision, it's a property of the pattern. Each handler knows its own model (`FUNCTION_CALL` → Haiku, `REACT` → Sonnet). The router's schema dropped from two fields to one.
+
+Pattern dispatch uses a `patternHandlers` map instead of if/else — adding a third pattern is a one-line change.
+
+**A2A response envelope.** Standardized the agent response format to `{ status: 'completed', data: {...} }` or `{ status: 'failed', error: '...' }`. The orchestrator unwraps the envelope in `executeTool()` before passing results to Claude — the LLM sees clean domain data, not transport wrappers.
+
+---
+
+## Phase 7 — knowledge-agent: RAG pipeline
+
+The missing capability was context. SQL tells you what happened. It can't tell you whether a revenue drop was planned, what the board decided, or whether a discount is policy-compliant. That context lives in documents.
+
+Built `knowledge-agent` as a standalone A2A agent — the one agent that genuinely earns its own process. The retrieval pipeline is complex enough to deserve its own context window: chunk → embed → vector search → rerank → synthesize. BiAgent sends a question over HTTP and gets back one clean answer with source citations. It never sees raw chunks.
+
+**Pipeline:**
+- `lib/chunker.ts` — recursive character splitting (2000 chars, 400 overlap), `[title | doc_type]:` prefix baked into chunk text
+- `scripts/ingest.ts` — LLM metadata extraction (gpt-4o-mini + tool_choice + Zod), `text-embedding-3-small`, pgvector upsert. Idempotent. Scans `docs/` automatically — no hardcoded registry.
+- `lib/retriever.ts` — embeds query, cosine search with heuristic pre-filters (doc_type + year from question keywords)
+- `lib/reranker.ts` — Cohere `rerank-v3.5` cross-encoder, 10 candidates → top-5
+- `lib/synthesizer.ts` — Haiku synthesis with grounding prompt, chunks sorted back to document order before synthesis
+
+**Key design decisions:**
+- Index time: LLM extracts metadata (slow is fine — offline). Query time: heuristics filter (fast — on the hot path).
+- Chunking is classic recursive, not document-aware. Simpler, deterministic, no dependency on document structure.
+- Chunk text carries `[title | doc_type]:` prefix — the embedding encodes document context, not just content.
+
+**Knowledge base:** 6 internal documents covering 2025–2026 strategy, board decisions, year-end performance, pricing policy, EMEA expansion analysis.
+
+---
+
 ## Current state
 
-**Name:** BiAgent (renamed from AgentIQ)
-**Sibling agents:** `agentiq-mcp-server` (MCP, STDIO), `anomaly-detector-agent` (A2A, port 3003)
-**Tool count:** 4 native + 1 MCP + 1 A2A
+**Name:** BiAgent
+**Architecture:** Monolith orchestrator (native tools + MCP) + 1 A2A agent (knowledge-agent)
+**Tools:** `query_database` (MCP), `chart`, `forecast_revenue`, `email`, `web_search` (native), `query_knowledge` (A2A)
 **Interfaces:** CLI, interactive CLI, Telegram bot, Alfred (RPi voice)
-
-The forecasting logic moved from A2A into a native tool (simpler, faster, no network hop). The A2A slot is now occupied by anomaly detection, which genuinely needs to be a separate service — it has its own LangSmith dependency and runs independently. The A2A agent is now auto-started by the convenience scripts (`npm run alfred`, `npm run telegram`, `npm run dev`).
+**Monorepo:** npm workspaces — `agents/knowledge-agent`, `mcp-server/`
 
 ---
 

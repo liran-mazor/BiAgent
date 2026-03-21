@@ -34,6 +34,11 @@
     .slide { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
     .slide.active { opacity: 1; pointer-events: all; }
 
+    .rev { opacity: 0; transform: translateY(6px); transition: opacity 0.5s ease, transform 0.5s ease; }
+    .rev.show { opacity: 1; transform: translateY(0); }
+    .rev-fade { opacity: 0; transition: opacity 0.4s ease; }
+    .rev-fade.show { opacity: 1; }
+
     /* ═══ PAGE 1 ═══ */
     .p1-wrap {
       display: flex; flex-direction: column; align-items: center;
@@ -74,67 +79,96 @@
     .flow-node span { color: var(--muted); font-size: 11px; }
     .flow-box { width: 64px; height: 64px; background: #050403; border: 1.5px solid var(--gold); }
 
-    /* ═══ PAGE 2 ═══ */
-    .p2-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 24px 60px 16px; gap: 6px; }
-    .p2-title { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; letter-spacing: 8px; text-transform: uppercase; color: var(--cream); margin-bottom: 16px; opacity: 0; transition: opacity 0.6s ease; }
-    .p2-title.show { opacity: 1; }
+    /* ═══ PAGE 2 — two-agent architecture ═══ */
+    .p2-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 48px; gap: 0; }
+    .p2-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 300; letter-spacing: 8px; text-transform: uppercase; color: var(--cream); margin-bottom: 20px; }
 
-    .rev { opacity: 0; transform: translateY(6px); transition: opacity 0.5s ease, transform 0.5s ease; }
-    .rev.show { opacity: 1; transform: translateY(0); }
-    .rev-fade { opacity: 0; transition: opacity 0.4s ease; }
-    .rev-fade.show { opacity: 1; }
+    .p2-ifaces-row { display: flex; gap: 10px; }
+    .p2-iface { border: 1px solid var(--border); background: var(--surface); padding: 8px 20px; }
+    .p2-iface-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
 
-    .biagent-outer svg.flow { margin-bottom: 6px; }
-    svg.flow { overflow: visible; display: block; }
+    .p2-agents-row { display: flex; align-items: flex-start; gap: 0; margin-top: 0; }
 
-    .ifaces-row { display: flex; gap: 10px; }
-    .iface { border: 1px solid var(--border); background: var(--surface); padding: 8px 20px; }
-    .iface-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
+    /* BiAgent column */
+    .p2-biagent-col { display: flex; flex-direction: column; align-items: center; width: 400px; }
 
-    .biagent-outer { border: 1.5px solid var(--gold); position: relative; padding: 16px 18px 0px; display: flex; flex-direction: column; align-items: center; overflow: visible; }
-    .biagent-outer-label { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); background: var(--bg); padding: 0 8px; }
+    .p2-outer { border: 1.5px solid var(--gold); position: relative; padding: 16px 16px 12px; display: flex; flex-direction: column; align-items: center; width: 100%; gap: 8px; }
+    .p2-outer-label { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); background: var(--bg); padding: 0 8px; }
 
-    .box { border: 1px solid var(--border); background: var(--surface); padding: 8px 18px; text-align: center; }
-    .box-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
-    .box-sub   { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; }
+    .p2-box { border: 1px solid var(--border); background: var(--surface); padding: 8px 16px; text-align: center; width: 100%; }
+    .p2-box-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
+    .p2-box-sub { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; }
 
-    .cache-box { border: 1px solid var(--border); background: var(--surface); padding: 8px 32px; text-align: center; }
-    .cache-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
-    .cache-sub   { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 2px; }
+    .p2-models-row { display: flex; gap: 8px; width: 100%; }
+    .p2-model { border: 1px solid var(--border); background: var(--surface); padding: 7px 0; text-align: center; flex: 1; }
+    .p2-model-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
+    .p2-model-sub { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 2px; }
 
-    .fork-row { display: flex; align-items: flex-start; width: 220px; }
-    .fork-hit  { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 2px; }
-    .fork-miss { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 2px; }
-    .fork-label  { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
-    .fork-return { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); }
-    .vline { width: 1px; background: var(--dim); }
+    .p2-core { border: 1px solid var(--gold); background: var(--surface); padding: 10px 14px; width: 100%; }
+    .p2-core-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; text-align: center; }
+    .p2-core-item { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--parch); letter-spacing: 1px; line-height: 1.9; }
+    .p2-core-item::before { content: '·  '; color: var(--gold); }
 
-    .models-row { display: flex; gap: 8px; align-items: center; }
-    .model-sep { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--dim); }
+    .p2-tools-row { display: flex; gap: 8px; width: 100%; }
+    .p2-tool { border: 1px solid var(--border); background: var(--surface); padding: 7px 10px; flex: 1; }
+    .p2-tool-title { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); margin-bottom: 4px; }
+    .p2-tool-item { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); line-height: 1.8; }
 
-    .core-box { border: 1px solid var(--gold); background: var(--surface); padding: 10px 24px; text-align: left; min-width: 260px; }
-    .core-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; text-align: center; }
-    .core-item { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--parch); letter-spacing: 1px; line-height: 2; }
-    .core-item::before { content: '·  '; color: var(--gold); }
+    /* A2A bridge */
+    .p2-a2a-col { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 88px; align-self: center; margin-top: 24px; }
+    .p2-a2a-label { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--green); margin-bottom: 4px; }
+    .p2-a2a-sub { font-family: 'DM Mono', monospace; font-size: 7px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
 
-    .tools-row { display: flex; gap: 10px; align-items: flex-start; }
-    .tool-box { border: 1px solid var(--border); background: var(--surface); padding: 8px 12px; text-align: center; min-width: 100px; }
-    .tool-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
-    .tool-item  { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 3px; }
+    /* knowledge-agent column */
+    .p2-ka-col { display: flex; flex-direction: column; align-items: center; width: 220px; align-self: center; margin-top: 24px; }
+    .p2-ka-outer { border: 1px solid var(--parch); position: relative; padding: 14px 14px 12px; display: flex; flex-direction: column; align-items: center; width: 100%; gap: 8px; }
+    .p2-ka-label { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--parch); background: var(--bg); padding: 0 8px; white-space: nowrap; }
+    .p2-ka-task { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 2px; color: var(--cream); text-align: center; }
+    .p2-ka-desc { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); text-align: center; margin-top: 2px; letter-spacing: 1px; line-height: 1.8; }
+    .p2-ka-divider { width: 100%; height: 1px; background: var(--dim); }
+    .p2-ka-stack { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); text-align: center; line-height: 2; letter-spacing: 1px; }
+    .p2-ka-stack span { color: var(--parch); }
 
-    .cb-row { display: flex; gap: 10px; }
-    .cb-label-between { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--green); border: 1px solid var(--green); padding: 2px 8px; text-align: center; }
+    /* MCP server note below BiAgent */
+    .p2-mcp-note { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--dim); margin-top: 8px; letter-spacing: 1px; text-align: center; }
 
-    .server-row { display: flex; gap: 10px; }
-    .server-box { border: 1px solid var(--border); background: var(--surface); padding: 6px 10px; text-align: center; min-width: 100px; }
-    .server-title { font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
-    .server-item  { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--dim); margin-top: 2px; }
+    /* ═══ PAGE 3 — RAG pipeline ═══ */
+    .p3-wrap { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 64px; }
+
+    .p3-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
+    .p3-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; letter-spacing: 8px; text-transform: uppercase; color: var(--cream); }
+    .p3-subtitle { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+
+    .p3-columns { display: flex; align-items: stretch; gap: 0; width: 100%; max-width: 860px; }
+
+    /* Index time column */
+    .p3-index { display: flex; flex-direction: column; flex: 1; align-items: center; padding-right: 40px; }
+    .p3-query { display: flex; flex-direction: column; flex: 1; align-items: center; padding-left: 40px; }
+
+    .p3-col-header { text-align: center; margin-bottom: 20px; }
+    .p3-col-label { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--gold); }
+    .p3-col-note { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 4px; letter-spacing: 2px; }
+
+    .p3-vdivider { width: 1px; background: var(--dim); flex-shrink: 0; }
+
+    .p3-step { border: 1px solid var(--border); background: var(--surface); padding: 8px 14px; width: 100%; text-align: center; }
+    .p3-step-title { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--parch); }
+    .p3-step-sub { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--muted); margin-top: 3px; letter-spacing: 1px; }
+    .p3-step-gold { border-color: var(--gold); }
+    .p3-step-gold .p3-step-title { color: var(--gold); }
+    .p3-step-green { border-color: var(--green); }
+    .p3-step-green .p3-step-title { color: var(--cream); }
+
+    .p3-arrow-down { display: flex; justify-content: center; padding: 3px 0; }
+
+    .p3-insight { font-family: 'DM Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 2px; text-align: center; margin-top: 24px; border-top: 1px solid var(--dim); padding-top: 16px; width: 100%; max-width: 860px; }
+    .p3-insight span { color: var(--parch); }
   </style>
 </head>
 <body>
 <div class="deck">
 
-  <!-- ══ PAGE 1 ══ -->
+  <!-- ══ SLIDE 1 ══ -->
   <div class="slide active" id="slide-1">
     <div class="p1-wrap">
       <div class="p1-title" id="t-title">BiAgent</div>
@@ -148,9 +182,8 @@
       <div class="p1-usecase-wrap" id="t-use">
         <div class="p1-usecase-label">Example Query</div>
         <div class="p1-usecase">
-          Analyze our <em>last 6 months of revenue</em>, forecast the <em>next 2 months</em>,
-          benchmark both against <em>industry competitors</em>, generate a <em>chart</em>,
-          and email the full report to the <em>finance team</em>.
+          Revenue dropped <em>12% this quarter</em> — should we be concerned?
+          Pull the numbers, check the <em>strategy doc</em>, and tell me if this was planned.
         </div>
       </div>
       <div class="p1-flow" id="t-flow">
@@ -169,249 +202,324 @@
     </div>
   </div>
 
-  <!-- ══ PAGE 2 ══ -->
+  <!-- ══ SLIDE 2 — Two-agent architecture ══ -->
   <div class="slide" id="slide-2">
     <div class="p2-wrap">
 
       <!-- S1: Interfaces -->
       <div class="rev" id="p2-ifaces">
-        <div class="ifaces-row">
-          <div class="iface"><div class="iface-title">CLI</div></div>
-          <div class="iface"><div class="iface-title">Telegram Bot</div></div>
-          <div class="iface"><div class="iface-title">Alfred</div></div>
+        <div class="p2-ifaces-row">
+          <div class="p2-iface"><div class="p2-iface-title">CLI</div></div>
+          <div class="p2-iface"><div class="p2-iface-title">Telegram Bot</div></div>
+          <div class="p2-iface"><div class="p2-iface-title">Alfred</div></div>
         </div>
       </div>
 
-      <!-- merge 3→1 with protocol labels -->
+      <!-- merge 3→1 -->
       <div class="rev-fade" id="p2-merge">
-        <svg class="flow" width="320" height="58" viewBox="0 0 320 58" style="overflow:visible;">
-          <!-- CLI stem -->
-          <line x1="53"  y1="0"  x2="53"  y2="28" stroke="#6a5c4a" stroke-width="1.5"/>
-          <!-- text label between CLI and Telegram -->
-          <text x="106" y="20" font-family="DM Mono" font-size="9" fill="#8a7a62" letter-spacing="1" text-anchor="middle">text</text>
-          <!-- Telegram stem -->
-          <line x1="160" y1="0"  x2="160" y2="28" stroke="#6a5c4a" stroke-width="1.5"/>
-          <!-- voice · whisper label between Telegram and Alfred -->
-          <text x="213" y="20" font-family="DM Mono" font-size="9" fill="#8a7a62" letter-spacing="1" text-anchor="middle">voice · whisper</text>
-          <!-- Alfred stem -->
-          <line x1="267" y1="0"  x2="267" y2="28" stroke="#6a5c4a" stroke-width="1.5"/>
-          <!-- horizontal bar -->
-          <line x1="53"  y1="28" x2="267" y2="28" stroke="#6a5c4a" stroke-width="1.5"/>
-          <!-- center stem down -->
-          <line x1="160" y1="28" x2="160" y2="48" stroke="#6a5c4a" stroke-width="1.5"/>
-          <polyline points="154,50 160,58 166,50" fill="none" stroke="#6a5c4a" stroke-width="1.5"/>
+        <svg width="320" height="48" viewBox="0 0 320 48" style="overflow:visible; display:block;">
+          <line x1="53"  y1="0"  x2="53"  y2="24" stroke="#6a5c4a" stroke-width="1.5"/>
+          <line x1="160" y1="0"  x2="160" y2="24" stroke="#6a5c4a" stroke-width="1.5"/>
+          <line x1="267" y1="0"  x2="267" y2="24" stroke="#6a5c4a" stroke-width="1.5"/>
+          <line x1="53"  y1="24" x2="267" y2="24" stroke="#6a5c4a" stroke-width="1.5"/>
+          <line x1="160" y1="24" x2="160" y2="38" stroke="#6a5c4a" stroke-width="1.5"/>
+          <polyline points="154,40 160,48 166,40" fill="none" stroke="#6a5c4a" stroke-width="1.5"/>
         </svg>
       </div>
 
-      <!-- BiAgent outer -->
-      <div class="biagent-outer rev-fade" id="p2-outer" style="margin-top:16px;">
-        <div class="biagent-outer-label">BiAgent</div>
+      <!-- Agents row: BiAgent + A2A + knowledge-agent -->
+      <div class="p2-agents-row">
 
-        <!-- S2: Cache -->
-        <div class="rev" id="p2-cache">
-          <div class="cache-box">
-            <div class="cache-title">Semantic Cache</div>
-            <div class="cache-sub">pgvector · OpenAI Embeddings</div>
-          </div>
-        </div>
+        <!-- BiAgent column -->
+        <div class="p2-biagent-col rev-fade" id="p2-outer-shell">
+          <div class="p2-outer">
+            <div class="p2-outer-label">BiAgent</div>
 
-        <!-- fork: hit left, miss right drops straight to router -->
-        <div class="rev-fade" id="p2-fork">
-          <svg class="flow" width="220" height="16" viewBox="0 0 220 16">
-            <!-- stem -->
-            <line x1="110" y1="0"  x2="110" y2="8"  stroke="#6a5c4a" stroke-width="1"/>
-            <!-- horizontal bar -->
-            <line x1="55"  y1="8"  x2="165" y2="8"  stroke="#6a5c4a" stroke-width="1"/>
-            <!-- hit: line down, no triangle -->
-            <line x1="55"  y1="8"  x2="55"  y2="16" stroke="#6a5c4a" stroke-width="1"/>
-            <!-- miss: plain line down, no triangle -->
-            <line x1="165" y1="8"  x2="165" y2="16" stroke="#6a5c4a" stroke-width="1"/>
-          </svg>
-          <div class="fork-row">
-            <div class="fork-hit">
-              <div class="fork-label">Hit</div>
-              <div class="vline" style="height:8px;"></div>
-              <div class="fork-return">Return</div>
+            <!-- S2: Router -->
+            <div class="rev" id="p2-router" style="width:100%;">
+              <div class="p2-box">
+                <div class="p2-box-title">Classifier · Haiku</div>
+                <div class="p2-box-sub">Routes by query complexity</div>
+              </div>
             </div>
-            <div class="fork-miss">
-              <div class="fork-label">Miss</div>
-              <!-- miss arrow tight below label, pointing down to Router -->
-              <svg class="flow" width="20" height="26" viewBox="0 0 20 26" style="display:block;margin-top:2px;margin-bottom:6px;">
-                <line x1="10" y1="0" x2="10" y2="18" stroke="#6a5c4a" stroke-width="1"/>
-                <polyline points="4,20 10,26 16,20" fill="none" stroke="#6a5c4a" stroke-width="1"/>
+
+            <div class="rev-fade" id="p2-model-arrow" style="width:100%;">
+              <svg width="100%" height="14" viewBox="0 0 240 14" preserveAspectRatio="none" style="display:block;">
+                <line x1="120" y1="0"  x2="120" y2="6"  stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="40"  y1="6"  x2="200" y2="6"  stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="40"  y1="6"  x2="40"  y2="14" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="200" y1="6"  x2="200" y2="14" stroke="#6a5c4a" stroke-width="1"/>
               </svg>
-            </div>
-          </div>
-        </div>
-
-        <!-- S3: Router - centered, miss arrow flows into it -->
-        <div class="rev" id="p2-router" style="align-self:center;">
-          <div class="box" style="min-width:180px;">
-            <div class="box-title">Classifier · Haiku</div>
-            <div class="box-sub">Analyzes query complexity</div>
-          </div>
-        </div>
-
-        <!-- split to models -->
-        <div class="rev-fade" id="p2-model-arrows">
-          <svg class="flow" width="220" height="16" viewBox="0 0 220 16">
-            <line x1="110" y1="0"  x2="110" y2="8"  stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="55"  y1="8"  x2="165" y2="8"  stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="55"  y1="8"  x2="55"  y2="16" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="165" y1="8"  x2="165" y2="16" stroke="#6a5c4a" stroke-width="1"/>
-          </svg>
-          <div class="models-row">
-            <div class="box" style="min-width:88px;">
-              <div class="box-title">Haiku</div>
-              <div class="box-sub">Simple</div>
-            </div>
-            <div class="model-sep">·</div>
-            <div class="box" style="min-width:88px;">
-              <div class="box-title">Sonnet 4</div>
-              <div class="box-sub">Complex</div>
-            </div>
-          </div>
-          <svg class="flow" width="220" height="32" viewBox="0 0 220 32">
-            <line x1="55"  y1="0"  x2="55"  y2="12" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="165" y1="0"  x2="165" y2="12" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="55"  y1="12" x2="165" y2="12" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="110" y1="12" x2="110" y2="24" stroke="#6a5c4a" stroke-width="1"/>
-            <polyline points="104,26 110,32 116,26" fill="none" stroke="#6a5c4a" stroke-width="1"/>
-          </svg>
-        </div>
-
-        <!-- S4: ReAct Core -->
-        <div class="rev" id="p2-core">
-          <div class="core-box">
-            <div class="core-title">ReAct Core · No Frameworks</div>
-            <div class="core-item">Conversation Memory</div>
-            <div class="core-item">Prompt Caching (3/4 slots)</div>
-            <div class="core-item">Parallel Tool Execution</div>
-            <div class="core-item">Token-based Summarization</div>
-          </div>
-        </div>
-
-        <!-- fan-out to 3 tool boxes -->
-        <div class="rev-fade" id="p2-tool-arrows">
-          <svg class="flow" width="340" height="38" viewBox="0 0 340 38">
-            <line x1="170" y1="0"  x2="170" y2="12" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="55"  y1="12" x2="285" y2="12" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="55"  y1="12" x2="55"  y2="30" stroke="#6a5c4a" stroke-width="1"/>
-            <polyline points="49,32 55,38 61,32" fill="none" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="170" y1="12" x2="170" y2="30" stroke="#6a5c4a" stroke-width="1"/>
-            <polyline points="164,32 170,38 176,32" fill="none" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="285" y1="12" x2="285" y2="30" stroke="#6a5c4a" stroke-width="1"/>
-            <polyline points="279,32 285,38 291,32" fill="none" stroke="#6a5c4a" stroke-width="1"/>
-          </svg>
-        </div>
-
-        <!-- S5: Tool boxes row -->
-        <div class="rev" id="p2-tools">
-          <div class="tools-row">
-            <div class="tool-box">
-              <div class="tool-title">Native Tools</div>
-              <div class="tool-item">Chart.js + S3</div>
-              <div class="tool-item">Web Search</div>
-              <div class="tool-item">Email</div>
-              <div class="tool-item">forecast_revenue</div>
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
-              <div class="cb-row">
-                <div class="tool-box">
-                  <div class="tool-title">MCP Tool</div>
-                  <div class="tool-item">query_database</div>
+              <div class="p2-models-row">
+                <div class="p2-model">
+                  <div class="p2-model-title">Haiku</div>
+                  <div class="p2-model-sub">Simple · 1 pass</div>
                 </div>
-                <div class="tool-box">
-                  <div class="tool-title">A2A Tool</div>
-                  <div class="tool-item">query_observability</div>
+                <div class="p2-model">
+                  <div class="p2-model-title">Sonnet</div>
+                  <div class="p2-model-sub">Complex · ReAct</div>
                 </div>
               </div>
-              <!-- merge up to CB -->
-              <svg width="230" height="12" viewBox="0 0 230 12" style="display:block;">
-                <line x1="55"  y1="0" x2="55"  y2="6"  stroke="#6a5c4a" stroke-width="1"/>
-                <line x1="175" y1="0" x2="175" y2="6"  stroke="#6a5c4a" stroke-width="1"/>
-                <line x1="55"  y1="6" x2="175" y2="6"  stroke="#6a5c4a" stroke-width="1"/>
-                <line x1="115" y1="6" x2="115" y2="12" stroke="#6a5c4a" stroke-width="1"/>
-              </svg>
-              <div class="cb-label-between">Circuit Breaker · Retry</div>
-              <!-- short stub to bottom of biagent box -->
-              <svg width="230" height="20" viewBox="0 0 230 20" style="display:block;">
-                <line x1="115" y1="0"  x2="115" y2="8"  stroke="#6a5c4a" stroke-width="1"/>
-                <line x1="55"  y1="8"  x2="175" y2="8"  stroke="#6a5c4a" stroke-width="1"/>
-                <line x1="55"  y1="8"  x2="55"  y2="20" stroke="#6a5c4a" stroke-width="1"/>
-                <line x1="175" y1="8"  x2="175" y2="20" stroke="#6a5c4a" stroke-width="1"/>
+              <svg width="100%" height="18" viewBox="0 0 240 18" preserveAspectRatio="none" style="display:block;">
+                <line x1="40"  y1="0"  x2="40"  y2="10" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="200" y1="0"  x2="200" y2="10" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="40"  y1="10" x2="200" y2="10" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="120" y1="10" x2="120" y2="18" stroke="#6a5c4a" stroke-width="1"/>
               </svg>
             </div>
-          </div>
-        </div>
 
-      </div><!-- /biagent-outer -->
+            <!-- S3: ReAct Core -->
+            <div class="rev" id="p2-core" style="width:100%;">
+              <div class="p2-core">
+                <div class="p2-core-title">ReAct Core · No Frameworks</div>
+                <div class="p2-core-item">Prompt Caching  (3 / 4 slots)</div>
+                <div class="p2-core-item">Parallel Tool Execution</div>
+                <div class="p2-core-item">Circuit Breakers · Retry</div>
+                <div class="p2-core-item">Token-based Summarization</div>
+              </div>
+            </div>
 
-      <!-- External servers: outside BiAgent gold border -->
-      <!-- arrows continue from stub above, gap=24px, servers shifted right to align with MCP/A2A tool columns -->
-      <div class="rev" id="p2-ext-servers" style="margin-top:-6px;display:flex;justify-content:center;padding-left:132px;align-self:stretch;">
-        <div style="display:flex;flex-direction:column;align-items:center;">
-          <svg width="230" height="28" viewBox="0 0 230 28" style="display:block;margin-bottom:14px;">
-            <line x1="55"  y1="0"  x2="55"  y2="20" stroke="#6a5c4a" stroke-width="1"/>
-            <polyline points="49,22 55,28 61,22" fill="none" stroke="#6a5c4a" stroke-width="1"/>
-            <line x1="175" y1="0"  x2="175" y2="20" stroke="#6a5c4a" stroke-width="1"/>
-            <polyline points="169,22 175,28 181,22" fill="none" stroke="#6a5c4a" stroke-width="1"/>
+            <!-- fan-out arrow -->
+            <div class="rev-fade" id="p2-tool-arrow" style="width:100%;">
+              <svg width="100%" height="24" viewBox="0 0 240 24" preserveAspectRatio="none" style="display:block;">
+                <line x1="120" y1="0"  x2="120" y2="10" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="50"  y1="10" x2="190" y2="10" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="50"  y1="10" x2="50"  y2="22" stroke="#6a5c4a" stroke-width="1"/>
+                <polyline points="44,20 50,26 56,20" fill="none" stroke="#6a5c4a" stroke-width="1"/>
+                <line x1="190" y1="10" x2="190" y2="22" stroke="#6a5c4a" stroke-width="1"/>
+                <polyline points="184,20 190,26 196,20" fill="none" stroke="#6a5c4a" stroke-width="1"/>
+              </svg>
+            </div>
+
+            <!-- S4: Tools -->
+            <div class="rev" id="p2-tools" style="width:100%;">
+              <div class="p2-tools-row">
+                <div class="p2-tool">
+                  <div class="p2-tool-title">Native</div>
+                  <div class="p2-tool-item">chart · S3</div>
+                  <div class="p2-tool-item">web_search</div>
+                  <div class="p2-tool-item">email</div>
+                  <div class="p2-tool-item">forecast</div>
+                </div>
+                <div class="p2-tool">
+                  <div class="p2-tool-title">MCP</div>
+                  <div class="p2-tool-item">query_database</div>
+                  <div class="p2-tool-item" style="color:var(--dim);">↓ PostgreSQL</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /p2-outer -->
+        </div><!-- /biagent col -->
+
+        <!-- A2A bridge -->
+        <div class="p2-a2a-col rev" id="p2-a2a">
+          <div class="p2-a2a-label">A2A</div>
+          <svg width="88" height="16" viewBox="0 0 88 16" style="display:block;">
+            <line x1="0" y1="8" x2="78" y2="8" stroke="#3d6456" stroke-width="1.5"/>
+            <polyline points="76,4 88,8 76,12" fill="none" stroke="#3d6456" stroke-width="1.5"/>
           </svg>
-          <div style="display:flex;gap:10px;">
-            <div class="server-box">
-              <div class="server-title">MCP Server</div>
-            </div>
-            <div class="server-box">
-              <div class="server-title">Observability Agent</div>
+          <div class="p2-a2a-sub">HTTP · port 3001</div>
+        </div>
+
+        <!-- knowledge-agent column -->
+        <div class="p2-ka-col rev" id="p2-ka">
+          <div class="p2-ka-outer">
+            <div class="p2-ka-label">knowledge-agent</div>
+            <div class="p2-ka-task">query_knowledge</div>
+            <div class="p2-ka-desc">answers questions from<br>internal documents</div>
+            <div class="p2-ka-divider"></div>
+            <div class="p2-ka-stack">
+              <span>pgvector</span>  ·  cosine search<br>
+              <span>Cohere</span>  ·  rerank<br>
+              <span>Haiku</span>  ·  synthesize
             </div>
           </div>
+          <div class="p2-mcp-note">6 internal documents · docs/</div>
         </div>
-      </div>
+
+      </div><!-- /agents-row -->
     </div>
   </div>
 
-</div>
+  <!-- ══ SLIDE 3 — RAG Pipeline ══ -->
+  <div class="slide" id="slide-3">
+    <div class="p3-wrap">
+
+      <!-- S1: Header -->
+      <div class="p3-header rev" id="p3-header">
+        <div class="p3-title">knowledge-agent</div>
+        <div class="p3-subtitle">Indexing · Retrieval · Synthesis</div>
+      </div>
+
+      <div class="p3-columns" style="max-width:860px; width:100%;">
+
+        <!-- Index time column -->
+        <div class="p3-index">
+          <div class="p3-col-header rev" id="p3-index-header">
+            <div class="p3-col-label">Index Time</div>
+            <div class="p3-col-note">offline · runs once per document</div>
+          </div>
+
+          <div class="rev" id="p3-index-steps" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:0;">
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Document</div>
+              <div class="p3-step-sub">markdown · docs/</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Extract Metadata</div>
+              <div class="p3-step-sub">gpt-4o-mini · tool_choice · Zod</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Chunk</div>
+              <div class="p3-step-sub">recursive · ~500 tokens · 100t overlap</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Embed</div>
+              <div class="p3-step-sub">text-embedding-3-small · 1536d</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step p3-step-gold" style="width:100%;">
+              <div class="p3-step-title">pgvector · HNSW</div>
+              <div class="p3-step-sub">30 chunks · 6 documents</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vertical divider -->
+        <div class="p3-vdivider rev-fade" id="p3-vdiv"></div>
+
+        <!-- Query time column -->
+        <div class="p3-query">
+          <div class="p3-col-header rev" id="p3-query-header">
+            <div class="p3-col-label">Query Time</div>
+            <div class="p3-col-note">live · every request</div>
+          </div>
+
+          <div class="rev" id="p3-query-steps" style="width:100%; display:flex; flex-direction:column; align-items:center; gap:0;">
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Question</div>
+              <div class="p3-step-sub">natural language · from BiAgent</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Embed + Pre-filter</div>
+              <div class="p3-step-sub">heuristics · doc_type · year</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Vector Search</div>
+              <div class="p3-step-sub">cosine similarity · top 10</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Rerank</div>
+              <div class="p3-step-sub">Cohere cross-encoder · top 5</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step" style="width:100%;">
+              <div class="p3-step-title">Synthesize</div>
+              <div class="p3-step-sub">Haiku · grounding prompt · cite sources</div>
+            </div>
+            <div class="p3-arrow-down">
+              <svg width="16" height="20" viewBox="0 0 16 20"><line x1="8" y1="0" x2="8" y2="12" stroke="#6a5c4a" stroke-width="1"/><polyline points="2,14 8,20 14,14" fill="none" stroke="#6a5c4a" stroke-width="1"/></svg>
+            </div>
+            <div class="p3-step p3-step-green" style="width:100%;">
+              <div class="p3-step-title">{ answer, sources }</div>
+              <div class="p3-step-sub">returned to BiAgent over A2A</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /columns -->
+
+      <!-- S5: Insight -->
+      <div class="p3-insight rev" id="p3-insight">
+        <span>Index time:</span> LLM for metadata extraction — offline, slow is fine &nbsp;·&nbsp;
+        <span>Query time:</span> heuristics for filtering — live, every millisecond counts
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /deck -->
 
 <script>
   let currentSlide = 1;
+  let step = 0;
 
   const p1steps = [
     () => { show('t-title'); show('t-sub'); },
-    () => { show('t-div'); show('t-tag'); },
+    () => { show('t-div');   show('t-tag'); },
     () => show('t-use'),
     () => show('t-flow'),
   ];
 
   const p2steps = [
-    () => { show('p2-ifaces'); show('p2-merge'); show('p2-outer'); },
-    () => { show('p2-cache'); show('p2-fork'); },
-    () => { show('p2-router'); show('p2-model-arrows'); },
+    () => { show('p2-ifaces'); show('p2-merge'); show('p2-outer-shell'); },
+    () => { show('p2-router'); show('p2-model-arrow'); },
     () => show('p2-core'),
-    () => { show('p2-tool-arrows'); show('p2-tools'); show('p2-ext-servers'); },
+    () => { show('p2-tool-arrow'); show('p2-tools'); },
+    () => { show('p2-a2a'); show('p2-ka'); },
   ];
 
-  function show(id) { const el = document.getElementById(id); if (el) el.classList.add('show'); }
+  const p3steps = [
+    () => show('p3-header'),
+    () => { show('p3-index-header'); show('p3-query-header'); show('p3-vdiv'); },
+    () => show('p3-index-steps'),
+    () => show('p3-query-steps'),
+    () => show('p3-insight'),
+  ];
 
-  let step = 0;
-  p1steps[step++]();
+  const slidesteps = [p1steps, p2steps, p3steps];
+
+  function show(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('show');
+  }
+
+  // auto-show first step of slide 1
+  slidesteps[0][step++]();
 
   function advance() {
-    if (currentSlide === 1) {
-      if (step < p1steps.length) p1steps[step++]();
-      else goToSlide(2);
-    } else {
-      if (step < p2steps.length) p2steps[step++]();
+    const steps = slidesteps[currentSlide - 1];
+    if (step < steps.length) {
+      steps[step++]();
+    } else if (currentSlide < 3) {
+      goToSlide(currentSlide + 1);
     }
   }
 
   function goToSlide(n) {
     document.getElementById(`slide-${currentSlide}`).classList.remove('active');
-    currentSlide = n; step = 0;
+    currentSlide = n;
+    step = 0;
     document.getElementById(`slide-${currentSlide}`).classList.add('active');
-    p2steps[step++]();
+    slidesteps[currentSlide - 1][step++]();
   }
 
-  document.addEventListener('keydown', e => { if (['Enter','ArrowRight',' '].includes(e.key)) { e.preventDefault(); advance(); } });
+  document.addEventListener('keydown', e => {
+    if (['Enter', 'ArrowRight', ' '].includes(e.key)) { e.preventDefault(); advance(); }
+  });
   document.addEventListener('click', advance);
 </script>
 </body>

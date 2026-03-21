@@ -1,4 +1,4 @@
-import { Agent } from '../agent/agent';
+import { Agent } from '../biagent/agent';
 
 async function main() {
   const question = process.argv.slice(2).join(' ');

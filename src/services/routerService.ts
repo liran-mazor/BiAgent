@@ -1,15 +1,13 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ROUTER_SYSTEM_PROMPT } from '../agent/prompts';
-import { MODEL } from '../agent/models';
+import { ROUTER_SYSTEM_PROMPT } from '../biagent/prompts';
+import { MODEL } from '../biagent/models';
 import { anthropic } from '../config/clients';
 
-export interface RoutingResult {
-  model: string;
-  pattern: string;
-  unavailableResponse?: string;
-}
+export type RouteResult =
+  | { available: true;  pattern: 'FUNCTION_CALL' | 'REACT' }
+  | { available: false; response: string }
 
-export async function routeQuery(query: string, openCircuits: string[] = []): Promise<RoutingResult> {
+export async function routeQuery(query: string, openCircuits: string[] = []): Promise<RouteResult> {
   try {
     const unavailableContext = openCircuits.length > 0
       ? `\nUnavailable tools: ${openCircuits.join(', ')}`
@@ -22,14 +20,10 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
       tools: [
         {
           name: 'route_query',
-          description: 'Route the query to the correct model and execution pattern',
+          description: 'Route the query to the correct execution pattern',
           input_schema: {
             type: 'object',
             properties: {
-              complexity: {
-                type: 'string',
-                enum: ['SIMPLE', 'COMPLEX'],
-              },
               pattern: {
                 type: 'string',
                 enum: ['FUNCTION_CALL', 'REACT'],
@@ -39,7 +33,7 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
                 description: 'Set only when the query cannot be answered due to unavailable tools. A clear, friendly explanation for the user.'
               }
             },
-            required: ['complexity', 'pattern'],
+            required: ['pattern'],
           },
         }
       ],
@@ -56,22 +50,19 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
       (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
     );
 
-    const { complexity, pattern, unavailable_response } = toolUseBlock!.input as {
-      complexity: string;
-      pattern: string;
+    const { pattern, unavailable_response } = toolUseBlock!.input as {
+      pattern: 'FUNCTION_CALL' | 'REACT';
       unavailable_response?: string;
     };
 
     if (unavailable_response) {
       console.log(`\n  → UNAVAILABLE: ${unavailable_response}`);
-      return { model: MODEL.Simple, pattern: 'FUNCTION_CALL', unavailableResponse: unavailable_response };
+      return { available: false, response: unavailable_response };
     }
 
-    const model = complexity === 'SIMPLE' ? MODEL.Simple : MODEL.Smart;
-    console.log(`\n  → ${complexity} / ${pattern} (using ${complexity === 'SIMPLE' ? 'Haiku' : 'Sonnet'})`);
-    return { model, pattern };
+    return { available: true, pattern };
   } catch (error) {
-    console.error('Router error, defaulting to COMPLEX/REACT:', error);
-    return { model: MODEL.Smart, pattern: 'REACT' };  // safe fallback
+    console.error('Router error, defaulting to REACT:', error);
+    return { available: true, pattern: 'REACT' };  // safe fallback
   }
 }

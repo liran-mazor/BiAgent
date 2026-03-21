@@ -27,7 +27,7 @@ export async function initializeA2ATools(agents: A2AAgentConfig[]): Promise<A2AT
       const tools: A2ATool[] = agentCard.capabilities.tasks.map((task: any) => ({
         name: task.name,
         description: task.description,
-        inputSchema: task.inputSchema,
+        input_schema: task.input_schema,
         execute: async (input: any) => {
           const res = await fetch(`${url}/tasks`, {
             method: 'POST',

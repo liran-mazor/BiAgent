@@ -1,5 +1,5 @@
 import readline from 'readline';
-import { Agent } from '../agent/agent';
+import { Agent } from '../biagent/agent';
 
 export async function runInteractive() {
   console.log('\n🤖 BiAgent Interactive Mode');

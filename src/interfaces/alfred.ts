@@ -1,5 +1,5 @@
 require('dotenv').config();
-import { Agent } from '../agent/agent';
+import { Agent } from '../biagent/agent';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
 import { AUDIO_PATHS } from '../alfred/audioPaths';
