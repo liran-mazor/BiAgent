@@ -4,9 +4,5 @@ charts/
 dist/
 *.log
 .DS_Store
-src/temp/
+biagent/temp/
 agentiq-alfred-4a025cb04d67.json
-*.json
-*.md
-!PROJECT_STATE
-!pitch/*.md

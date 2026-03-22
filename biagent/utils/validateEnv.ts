@@ -19,6 +19,7 @@ const BIAGENT_ENV: EnvSpec[] = [
   { key: 'AWS_SECRET_ACCESS_KEY',required: true,  description: 'S3 chart upload' },
   { key: 'AWS_REGION',           required: true,  description: 'S3 chart upload' },
   { key: 'S3_BUCKET_NAME',       required: true,  description: 'S3 chart upload' },
+  { key: 'CLICKHOUSE_HOST',      required: false, description: 'ClickHouse analytics (optional)' },
   { key: 'TELEGRAM_BOT_TOKEN',   required: false, description: 'Telegram interface (optional)' },
   { key: 'LANGSMITH_API_KEY',    required: false, description: 'Observability (optional)' },
   { key: 'PICOVOICE_ACCESS_KEY', required: false, description: 'Alfred wake word (optional)' },

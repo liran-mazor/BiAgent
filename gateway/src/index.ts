@@ -114,8 +114,8 @@ app.post('/:agent/tasks', limiter, authenticate, async (req, res) => {
 });
 
 // Business services — all methods, all paths (JWT required)
-// /api/orders/orders    → orders-service:4001/orders
-// /api/catalog/products → catalog-service:4002/products
+// /api/orders/orders    → orders:4001/orders
+// /api/catalog/products → catalog:4002/products
 app.all('/api/:service/*', limiter, authenticate, async (req, res) => {
   const service = req.params.service as string;
   const upstream = UPSTREAM_SERVICES[service];

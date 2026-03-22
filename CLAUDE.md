@@ -20,7 +20,7 @@ npm run voice                 # Alfred voice interface (RPi)
 npm run bot                   # Telegram bot
 
 # knowledge-agent ingestion (run once, or after docs/ change)
-npm run ingest -w agents/knowledge-agent
+npm run ingest
 
 # Maintenance
 npm run daily-seed            # Seed new daily data
@@ -108,13 +108,13 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | `src/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
 | `gateway/src/index.ts` | API gateway — JWT auth + rate limiting + proxy |
 | `mcp-server/` | STDIO MCP server — PostgreSQL query_database tool |
-| `agents/knowledge-agent/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
-| `agents/knowledge-agent/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
-| `agents/knowledge-agent/src/lib/retriever.ts` | Embed query → pgvector cosine search + pre-filters |
-| `agents/knowledge-agent/src/lib/reranker.ts` | Cohere cross-encoder reranking |
-| `agents/knowledge-agent/src/lib/synthesizer.ts` | gpt-4o-mini synthesis over reranked chunks |
-| `agents/knowledge-agent/src/config.ts` | Model names + DB config — single source of truth |
-| `agents/knowledge-agent/src/scripts/ingest.ts` | Offline ingestion — LLM metadata + embed + upsert |
+| `knowledge-agent/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
+| `knowledge-agent/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
+| `knowledge-agent/src/lib/retriever.ts` | Embed query → pgvector cosine search + pre-filters |
+| `knowledge-agent/src/lib/reranker.ts` | Cohere cross-encoder reranking |
+| `knowledge-agent/src/lib/synthesizer.ts` | gpt-4o-mini synthesis over reranked chunks |
+| `knowledge-agent/src/config.ts` | Model names + DB config — single source of truth |
+| `knowledge-agent/src/scripts/ingest.ts` | Offline ingestion — LLM metadata + embed + upsert |
 
 ### Alfred Voice Interface
 Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.

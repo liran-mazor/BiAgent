@@ -1,25 +1,25 @@
 export enum Topics {
-  // orders-service
+  // orders
   OrderPlaced      = 'order.placed',
   OrderPlacedRetry = 'order.placed.retry',
   OrderPlacedDlq   = 'order.placed.dlq',
 
-  // catalog-service
+  // catalog
   ProductCreated      = 'product.created',
   ProductCreatedRetry = 'product.created.retry',
   ProductCreatedDlq   = 'product.created.dlq',
 
-  // customers-service
+  // customers
   CustomerRegistered      = 'customer.registered',
   CustomerRegisteredRetry = 'customer.registered.retry',
   CustomerRegisteredDlq   = 'customer.registered.dlq',
 
-  // backoffice-service
+  // backoffice
   DocumentUploaded      = 'document.uploaded',
   DocumentUploadedRetry = 'document.uploaded.retry',
   DocumentUploadedDlq   = 'document.uploaded.dlq',
 
-  // reviews-service
+  // reviews
   ReviewCreated      = 'review.created',
   ReviewCreatedRetry = 'review.created.retry',
   ReviewCreatedDlq   = 'review.created.dlq',

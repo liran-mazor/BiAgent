@@ -1,0 +1,28 @@
+{
+  "name": "knowledge-agent",
+  "version": "1.0.0",
+  "scripts": {
+    "chunk": "tsx src/scripts/chunk.ts",
+    "ingest": "tsx src/scripts/ingest.ts",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
+    "@aws-sdk/client-s3": "^3",
+    "@biagent/common": "*",
+    "cohere-ai": "^7.17.1",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "kafkajs": "^2.2.4",
+    "openai": "^6.16.0",
+    "pg": "^8.13.3",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^25.0.9",
+    "@types/pg": "^8.11.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
