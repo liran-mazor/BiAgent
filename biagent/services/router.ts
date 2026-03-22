@@ -60,7 +60,6 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
       return { available: false, response: unavailable_response };
     }
 
-    console.log(`  ◈ Router         : ${pattern}`);
     return { available: true, pattern };
   } catch (error) {
     console.error('Router error, defaulting to REACT:', error);

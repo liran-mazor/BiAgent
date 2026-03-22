@@ -37,12 +37,15 @@ export class Agent {
     question: string,
     conversationId: string
   ): Promise<string> {
-    console.log(`\n🤔  Question: ${question}\n`);
+    console.log(`\n🤔 Question: ${question}\n`);
 
     await this.initializeA2A();
 
     const openCircuits = getOpenCircuits();
+
     const route = await routeQuery(question, openCircuits);
+
+    console.log(`  ◈ Router      : ${route.available ? route.pattern : 'UNAVAILABLE'}`);
 
     if (!route.available) return route.response;
 
@@ -65,7 +68,7 @@ export class Agent {
     question: string,
     conversationId: string
   ): Promise<string> {
-    console.log(`\n  ◈ Function call (single pass)`);
+    console.log(`\n  ◈ Function call`);
 
     const response = await this.callLLM(MODEL.Simple, messages, formattedTools);
     this.trackTokenUsage(conversationId, response.usage);
@@ -79,8 +82,8 @@ export class Agent {
     }
 
     for (const b of toolUseBlocks) {
-      console.log(`    Tool        : ${b.name}`);
-      console.log(`    Input       : ${JSON.stringify(b.input)}\n`);
+      console.log(`     Tool      : ${b.name}`);
+      console.log(`     Input     : ${JSON.stringify(b.input)}\n\n`);
     }
 
     const toolResults = await Promise.all(toolUseBlocks.map(block => this.executeTool(block)));
@@ -110,7 +113,7 @@ export class Agent {
       console.log(`\n  ◈ Iteration ${iteration}`);
 
       const response = await this.callLLM(MODEL.Smart, messages, formattedTools);
-      console.log(`    Stop reason : ${response.stop_reason}`);
+      console.log(`      Stop reason : ${response.stop_reason}`);
       this.trackTokenUsage(conversationId, response.usage);
 
       const toolUseBlocks = response.content.filter(
@@ -122,8 +125,8 @@ export class Agent {
       }
 
       for (const b of toolUseBlocks) {
-        console.log(`    Tool        : ${b.name}`);
-        console.log(`    Input       : ${JSON.stringify(b.input)}`);
+        console.log(`      Tool        : ${b.name}`);
+        console.log(`      Input       : ${JSON.stringify(b.input)}`);
       }
 
       const toolResults = await Promise.all(
@@ -250,7 +253,7 @@ export class Agent {
     if (nativeTool) {
       const result = await nativeTool.execute(toolUseBlock.input as any);
       if (result?.data?.chartUrl) this.lastChartUrl = result.data.chartUrl;
-      if (!result.success) console.log(`    ❌  ${toolUseBlock.name}  ${result.error}`);
+      if (!result.success) console.log(`    ERROR        : ${toolUseBlock.name}  ${result.error}`);
       return { tool_use_id: toolUseBlock.id, result };
     }
 
