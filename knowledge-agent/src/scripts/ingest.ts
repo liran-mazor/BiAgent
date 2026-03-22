@@ -139,14 +139,14 @@ async function ingestFile(filename: string): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM documents WHERE source = $1', [filename]);
+    await client.query('DELETE FROM rag_documents WHERE source = $1', [filename]);
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const vectorLiteral = `[${allEmbeddings[i].join(',')}]`;
 
       await client.query(
-        `INSERT INTO documents (content, embedding, source, doc_type, year, chunk_index)
+        `INSERT INTO rag_documents (content, embedding, source, doc_type, year, chunk_index)
          VALUES ($1, $2::vector, $3, $4, $5, $6)`,
         [chunk.text, vectorLiteral, filename, meta.doc_type, meta.year, chunk.chunkIndex],
       );

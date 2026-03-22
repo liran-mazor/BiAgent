@@ -10,14 +10,13 @@
  * Route conventions:
  *   GET  /:agent/.well-known/agent.json  → public  (A2A service discovery, no auth)
  *   POST /:agent/tasks                   → private (A2A invocation, JWT required)
- *   ANY  /api/:service/*                  → private (business service proxy, JWT required)
+ *   ANY  /api/:service/*                 → private (business service proxy, JWT required)
  *
  * Adding a new A2A agent   = one line in UPSTREAM_AGENTS.
  * Adding a new microservice = one line in UPSTREAM_SERVICES.
  */
 
-import { config } from 'dotenv';
-config({ path: '../.env' });
+import 'dotenv/config';
 import { validateEnv } from './validateEnv.js';
 validateEnv();
 
@@ -80,13 +79,28 @@ const limiter = rateLimit({
 
 async function proxy(upstream: string, path: string, req: Request, res: Response): Promise<void> {
   try {
-    const url = `${upstream}${path}`;
-    const response = await fetch(url, {
+    const url         = `${upstream}${path}`;
+    const contentType = (req.headers['content-type'] ?? '').toLowerCase();
+    const isMultipart = contentType.startsWith('multipart/');
+
+    // Multipart (file upload): pipe the raw request stream with its original Content-Type
+    // so multer on the upstream receives the correct boundary.
+    // JSON: re-serialise the already-parsed body.
+    const fetchInit: RequestInit & { duplex?: string } = {
       method:  req.method,
-      headers: { 'Content-Type': 'application/json' },
-      body:    req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
-    });
-    const data = await response.json();
+      headers: isMultipart
+        ? { 'content-type': req.headers['content-type']! }
+        : { 'content-type': 'application/json' },
+      body: req.method === 'GET'
+        ? undefined
+        : isMultipart
+          ? req as any          // Node.js IncomingMessage is a Readable — fetch accepts it
+          : JSON.stringify(req.body),
+    };
+    if (isMultipart) fetchInit.duplex = 'half'; // required by Node fetch for request streams
+
+    const response = await fetch(url, fetchInit);
+    const data     = await response.json();
     res.status(response.status).json(data);
   } catch (err: any) {
     res.status(502).json({ error: `Upstream unavailable: ${err.message}` });
@@ -114,8 +128,6 @@ app.post('/:agent/tasks', limiter, authenticate, async (req, res) => {
 });
 
 // Business services — all methods, all paths (JWT required)
-// /api/orders/orders    → orders:4001/orders
-// /api/catalog/products → catalog:4002/products
 app.all('/api/:service/*', limiter, authenticate, async (req, res) => {
   const service = req.params.service as string;
   const upstream = UPSTREAM_SERVICES[service];

@@ -108,11 +108,11 @@ export async function ingestContent(source: string, filename: string, text: stri
   const client = await getPool().connect();
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM documents WHERE source = $1', [source]);
+    await client.query('DELETE FROM rag_documents WHERE source = $1', [source]);
 
     for (let i = 0; i < chunks.length; i++) {
       await client.query(
-        `INSERT INTO documents (content, embedding, source, doc_type, year, chunk_index)
+        `INSERT INTO rag_documents (content, embedding, source, doc_type, year, chunk_index)
          VALUES ($1, $2::vector, $3, $4, $5, $6)`,
         [chunks[i].text, `[${allEmbeddings[i].join(',')}]`, source, meta.doc_type, meta.year, chunks[i].chunkIndex],
       );

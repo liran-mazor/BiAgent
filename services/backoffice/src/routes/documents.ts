@@ -8,7 +8,7 @@ const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'eu-north-1' });
-const BUCKET = process.env.AWS_S3_BUCKET!;
+const BUCKET = process.env.S3_BUCKET_NAME!;
 
 /**
  * POST /documents

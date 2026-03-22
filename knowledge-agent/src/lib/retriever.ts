@@ -89,7 +89,7 @@ export async function retrieve(
        year,
        chunk_index,
        1 - (embedding <=> $1::vector) AS similarity
-     FROM documents
+     FROM rag_documents
      WHERE ($2::text IS NULL OR doc_type = $2)
        AND ($3::int  IS NULL OR year     = $3)
      ORDER BY embedding <=> $1::vector

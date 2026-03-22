@@ -30,7 +30,8 @@
     "svc:reviews": "tsx services/reviews/src/index.ts",
     "svc:backoffice": "tsx services/backoffice/src/index.ts",
     "outbox-worker": "tsx infra/src/outbox-worker.ts",
-    "consumer": "tsx biagent/consumers/index.ts"
+    "consumer": "tsx biagent/consumers/index.ts",
+    "smoke-test": "tsx infra/src/smoke-test.ts"
   },
   "keywords": [],
   "author": "",
