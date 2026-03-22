@@ -1,108 +1,14 @@
 import { config } from 'dotenv';
-config({ path: '../../.env' }); // npm workspace cwd = agents/knowledge-agent, root .env is 2 levels up
+config({ path: '../../.env' });
 import { validateEnv } from './validateEnv.js';
 validateEnv();
-import express from 'express';
-import { retrieve } from './lib/retriever.js';
-import { rerank } from './lib/reranker.js';
-import { synthesize } from './lib/synthesizer.js';
+
+import { createApp } from './app.js';
 
 const PORT = parseInt(process.env.KNOWLEDGE_AGENT_PORT ?? '3001');
 
-// ── Express ───────────────────────────────────────────────────────────────────
-
-const app = express();
-app.use(express.json());
-
-// ── Agent Card ────────────────────────────────────────────────────────────────
-
-app.get('/.well-known/agent.json', (_req, res) => {
-  res.json({
-    name: 'knowledge-agent',
-    description: 'Retrieves answers grounded in internal business documents using a RAG pipeline (pgvector + Cohere rerank + Haiku synthesis).',
-    capabilities: {
-      tasks: [
-        {
-          name: 'query_knowledge',
-          description:
-            'Answer a question using internal business documents — strategy plans, board decisions, pricing policy, EMEA expansion analysis. ' +
-            'Returns a direct answer with source document citations. ' +
-            'Use this when the question requires context that lives in documents, not in the database. ' +
-            'Examples: "Should we be concerned about the revenue drop?", "What did the board decide about EMEA?", "Can we run a 25% discount on Sports?"',
-          input_schema: {
-            type: 'object',
-            properties: {
-              question: {
-                type: 'string',
-                description: 'The question to answer from internal documents.',
-              },
-            },
-            required: ['question'],
-          },
-        },
-      ],
-    },
-  });
-});
-
-// ── Task handler ──────────────────────────────────────────────────────────────
-
-app.post('/tasks', async (req, res) => {
-  const { task, input } = req.body ?? {};
-
-  if (task !== 'query_knowledge') {
-    res.status(400).json({ status: 'failed', error: `Unknown task: ${task}` });
-    return;
-  }
-
-  const { question } = input ?? {};
-  if (!question || typeof question !== 'string') {
-    res.status(400).json({ status: 'failed', error: 'input.question is required and must be a string' });
-    return;
-  }
-
-  const TIMEOUT_MS = parseInt(process.env.RAG_TIMEOUT_MS ?? '30000');
-
-  try {
-    const result = await Promise.race([
-      handleQueryKnowledge(question),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`RAG pipeline timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
-      ),
-    ]);
-    res.json({ status: 'completed', data: result });
-  } catch (err: any) {
-    console.error('query_knowledge failed:', err.message);
-    res.status(500).json({ status: 'failed', error: err.message });
-  }
-});
-
-// ── RAG Pipeline ──────────────────────────────────────────────────────────────
-
-async function handleQueryKnowledge(question: string) {
-  const short = question.length > 80 ? question.slice(0, 77) + '...' : question;
-  console.log(`\n[RAG] "${short}"`);
-
-  // Step 1 — embed question + vector search → top-K candidates
-  const candidates = await retrieve(question);
-  console.log(`      retrieve : ${candidates.length} candidates`);
-
-  // Step 2 — cross-encoder reranking → top 5
-  const reranked = await rerank(question, candidates);
-  console.log(`      rerank   : ${reranked.length} chunks`);
-
-  // Step 3 — Haiku reads sorted chunks → answer
-  const result = await synthesize(question, reranked);
-  console.log(`      sources  : ${result.sources.join(', ')}`);
-
-  return result;
-}
-
-// ── Start + Graceful shutdown ──────────────────────────────────────────────────
-
-const server = app.listen(PORT, () => {
-  console.log(`knowledge-agent running on port ${PORT}`);
-});
+const app    = createApp();
+const server = app.listen(PORT, () => console.log(`knowledge-agent running on port ${PORT}`));
 
 function shutdown(signal: string): void {
   console.log(`\n${signal} received — shutting down`);
@@ -110,7 +16,6 @@ function shutdown(signal: string): void {
     console.log('knowledge-agent stopped');
     process.exit(0);
   });
-  // Force exit if in-flight requests don't finish within 10s
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 

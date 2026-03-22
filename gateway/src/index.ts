@@ -1,17 +1,19 @@
 /**
- * Minimal API Gateway
+ * API Gateway
  *
- * Sits between BiAgent and all downstream A2A agents.
- * Responsibilities:
- *   1. JWT authentication — every /tasks call must carry a valid Bearer token
- *   2. Routing — path prefix maps to upstream agent URL
- *   3. Transparent proxying — strips prefix, forwards body, returns upstream response
+ * Single entry point for all HTTP traffic in the BiAgent platform.
  *
- * Route convention:
- *   /:agent/.well-known/agent.json  → public  (service discovery, no auth)
- *   /:agent/tasks                   → private (requires JWT)
+ * Two registries:
+ *   UPSTREAM_AGENTS   — A2A agents (BiAgent internal, JWT auth)
+ *   UPSTREAM_SERVICES — Business microservices (external-facing, JWT auth)
  *
- * Adding a new agent = one line in UPSTREAM_AGENTS.
+ * Route conventions:
+ *   GET  /:agent/.well-known/agent.json  → public  (A2A service discovery, no auth)
+ *   POST /:agent/tasks                   → private (A2A invocation, JWT required)
+ *   ANY  /api/:service/*                  → private (business service proxy, JWT required)
+ *
+ * Adding a new A2A agent   = one line in UPSTREAM_AGENTS.
+ * Adding a new microservice = one line in UPSTREAM_SERVICES.
  */
 
 import { config } from 'dotenv';
@@ -23,20 +25,29 @@ import express, { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 
-const PORT       = parseInt(process.env.GATEWAY_PORT        ?? '3000');
+const PORT       = parseInt(process.env.GATEWAY_PORT ?? '3000');
 const JWT_SECRET = process.env.JWT_SECRET!;
 
-// ── Route registry ────────────────────────────────────────────────────────────
-// Maps /:agent path prefix → upstream base URL.
-// Adding a new A2A agent = one entry here.
+// ── A2A agent registry ────────────────────────────────────────────────────────
+// BiAgent calls these via the A2A protocol (Agent Card + /tasks).
 
 const UPSTREAM_AGENTS: Record<string, string> = {
   knowledge: process.env.KNOWLEDGE_AGENT_URL ?? 'http://localhost:3001',
 };
 
+// ── Business service registry ─────────────────────────────────────────────────
+// Source-of-truth microservices that receive writes and publish Kafka events.
+// Routed under /svc/:service/* to keep A2A and service namespaces separate.
+
+const UPSTREAM_SERVICES: Record<string, string> = {
+  orders:     process.env.ORDERS_SERVICE_URL     ?? 'http://localhost:4001',
+  catalog:    process.env.CATALOG_SERVICE_URL    ?? 'http://localhost:4002',
+  customers:  process.env.CUSTOMERS_SERVICE_URL  ?? 'http://localhost:4003',
+  reviews:    process.env.REVIEWS_SERVICE_URL    ?? 'http://localhost:4004',
+  backoffice: process.env.BACKOFFICE_SERVICE_URL ?? 'http://localhost:4005',
+};
+
 // ── Auth middleware ───────────────────────────────────────────────────────────
-// Verifies the Bearer JWT in the Authorization header.
-// Rejects with 401 if missing, malformed, or signed with the wrong secret.
 
 function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
@@ -55,9 +66,17 @@ function authenticate(req: Request, res: Response, next: NextFunction): void {
   }
 }
 
+// ── Rate limiter ──────────────────────────────────────────────────────────────
+
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS      ?? '60000'),
+  max:      parseInt(process.env.RATE_LIMIT_MAX_REQUESTS   ?? '60'),
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: { error: 'Too many requests — slow down' },
+});
+
 // ── Proxy ─────────────────────────────────────────────────────────────────────
-// Strips the /:agent prefix and forwards the request to the upstream agent.
-// The upstream agent never sees the prefix — its routes stay unchanged.
 
 async function proxy(upstream: string, path: string, req: Request, res: Response): Promise<void> {
   try {
@@ -74,38 +93,39 @@ async function proxy(upstream: string, path: string, req: Request, res: Response
   }
 }
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// ── App ───────────────────────────────────────────────────────────────────────
 
 const app = express();
 app.use(express.json());
 
-// ── Rate limiter ──────────────────────────────────────────────────────────────
-// Applied to /tasks only — agent card discovery is exempt.
-// Configurable via env: RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS.
-
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS ?? '60000'), // 1 minute
-  max:      parseInt(process.env.RATE_LIMIT_MAX_REQUESTS ?? '60'), // 60 req/min
-  standardHeaders: true,  // Return rate limit info in RateLimit-* headers
-  legacyHeaders:   false,
-  message: { error: 'Too many requests — slow down' },
-});
-
-// Agent Card — public, no auth.
-// BiAgent calls this at startup for service discovery.
+// A2A — Agent Card (public, no auth)
 app.get('/:agent/.well-known/agent.json', async (req, res) => {
   const upstream = UPSTREAM_AGENTS[req.params.agent];
   if (!upstream) { res.status(404).json({ error: `Unknown agent: ${req.params.agent}` }); return; }
   await proxy(upstream, '/.well-known/agent.json', req, res);
 });
 
-// Tasks — requires valid JWT.
-// All agent invocations go through here.
+// A2A — task invocation (JWT required)
 app.post('/:agent/tasks', limiter, authenticate, async (req, res) => {
-  const upstream = UPSTREAM_AGENTS[req.params.agent as string];
-  if (!upstream) { res.status(404).json({ error: `Unknown agent: ${req.params.agent}` }); return; }
+  const agent = req.params.agent as string;
+  const upstream = UPSTREAM_AGENTS[agent];
+  if (!upstream) { res.status(404).json({ error: `Unknown agent: ${agent}` }); return; }
   await proxy(upstream, '/tasks', req, res);
 });
+
+// Business services — all methods, all paths (JWT required)
+// /api/orders/orders    → orders-service:4001/orders
+// /api/catalog/products → catalog-service:4002/products
+app.all('/api/:service/*', limiter, authenticate, async (req, res) => {
+  const service = req.params.service as string;
+  const upstream = UPSTREAM_SERVICES[service];
+  if (!upstream) { res.status(404).json({ error: `Unknown service: ${service}` }); return; }
+  // Strip /api/:service prefix, forward the rest as-is
+  const path = req.path.replace(`/api/${service}`, '') || '/';
+  await proxy(upstream, path, req, res);
+});
+
+// ── Server lifecycle ──────────────────────────────────────────────────────────
 
 const server = app.listen(PORT, () => console.log(`gateway running on port ${PORT}`));
 
