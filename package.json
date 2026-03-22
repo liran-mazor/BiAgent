@@ -31,7 +31,8 @@
     "svc:backoffice": "tsx services/backoffice/src/index.ts",
     "outbox-worker": "tsx infra/src/outbox-worker.ts",
     "consumer": "tsx biagent/consumers/index.ts",
-    "smoke-test": "tsx infra/src/smoke-test.ts"
+    "smoke-test": "tsx infra/src/smoke-test.ts",
+    "seed-warehouse": "tsx infra/src/seed-warehouse.ts"
   },
   "keywords": [],
   "author": "",

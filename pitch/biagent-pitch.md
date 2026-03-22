@@ -114,17 +114,33 @@ Every architectural decision reduces token spend:
 
 ```
 biagent (orchestrator)
-├── query_database     MCP → PostgreSQL
+├── query_analytics    native → ClickHouse (analytical warehouse)
 ├── chart              native, Chart.js → S3
 ├── forecast_revenue   native, linear trend
 ├── email              native, SMTP
 ├── web_search         native, Tavily
-└── knowledge-agent    A2A → RAG pipeline (pgvector + Cohere rerank + Haiku)
+└── knowledge-agent    A2A → RAG pipeline (pgvector + Cohere rerank + gpt-4o-mini)
+
+Event-driven write side:
+  services/ (orders, catalog, customers, reviews, backoffice)
+    └── outbox → Kafka → biagent consumer → ClickHouse
+                      → knowledge-agent  → pgvector
 ```
 
 Interfaces: CLI, Telegram bot, Alfred (Raspberry Pi voice assistant with wake word, lip-sync, and screen display).
 
 Observability: every LLM call traced in LangSmith via `wrapSDK` — zero agent code changes.
+
+---
+
+## The Full Pipeline — Verified End-to-End
+
+```
+POST order   → outbox → Kafka → BiAgent consumer  → ClickHouse  ✓
+POST document → S3    → outbox → Kafka → knowledge-agent → pgvector   ✓
+```
+
+Every write travels the same path: service commits entity + outbox row in one transaction, the outbox worker publishes to Kafka, and each downstream consumer writes to its own store. BiAgent queries ClickHouse for numbers and pgvector for document context — two read models, one orchestrator, zero direct service coupling.
 
 ---
 
