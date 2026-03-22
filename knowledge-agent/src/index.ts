@@ -13,7 +13,11 @@ const consumer = createConsumer();
 const server = app.listen(PORT, () => console.log(`knowledge-agent running on port ${PORT}`));
 
 async function start(): Promise<void> {
-  await consumer.start();
+  try {
+    await consumer.start();
+  } catch {
+    console.log('[knowledge-agent] Kafka unavailable — consumer disabled (demo mode)');
+  }
 }
 
 async function shutdown(signal: string): Promise<void> {

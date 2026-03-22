@@ -5,25 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Infrastructure (required before running the agent)
-docker-compose up -d          # Start PostgreSQL
-npm run init-db               # Initialize DB schema (runs in mcp-server)
-npm run seed                  # Seed sample data
+# Demo / interview setup (one-time per fresh environment)
+npm run demo:infra            # docker compose -f docker-compose.demo.yml up -d (pgvector + ClickHouse)
+npm run demo:init             # Apply schemas — no Kafka required
+npm run seed-warehouse        # Seed ClickHouse with 5 years of historical data
+npm run ingest                # Seed pgvector with 9 knowledge base docs from docs/
 
-# Run BiAgent (3 terminals)
-npm run agent                 # Start knowledge-agent (port 3001)
-npm run gateway               # Start API gateway (port 3000)
-npm start "query"             # Single query via CLI
+# Run the demo stack (two terminals)
+npm run demo                  # Terminal 1: gateway (silent) + knowledge-agent
+npm start "query"             # Terminal 2: single query via CLI
+
+# Full dev stack (requires Kafka running)
+docker compose up -d          # All infra: pgvector + ClickHouse + Kafka
+npm run init                  # Init Kafka topics + ClickHouse schema + pgvector schema
 npm run interactive           # Conversational CLI
 npm run dev                   # Conversational CLI (alias)
 npm run voice                 # Alfred voice interface (RPi)
 npm run bot                   # Telegram bot
 
-# knowledge-agent ingestion (run once, or after docs/ change)
-npm run ingest
-
-# Maintenance
-npm run daily-seed            # Seed new daily data
+# Use docker compose (v2, no hyphen) — docker-compose v1 is incompatible with newer Docker Engine
 ```
 
 TypeScript is run directly with `tsx` — no build step needed.
@@ -50,7 +50,7 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 ### Tool Inventory
 | Tool | Protocol | Notes |
 |------|----------|-------|
-| `query_database` | MCP | SQL SELECT against PostgreSQL |
+| `query_analytics` | Native | SQL SELECT against ClickHouse warehouse |
 | `chart` | Native | Chart.js → PNG → S3 upload |
 | `forecast_revenue` | Native | Linear trend forecasting |
 | `email` | Native | SMTP via nodemailer |
@@ -107,8 +107,9 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | `src/utils/validateEnv.ts` | Required env var validation — exits on startup if missing |
 | `src/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
 | `gateway/src/index.ts` | API gateway — JWT auth + rate limiting + proxy |
-| `mcp-server/` | STDIO MCP server — PostgreSQL query_database tool |
+| `biagent/tools/queryAnalyticsTool.ts` | Native ClickHouse tool — SELECT only, uses shared clickhouse client |
 | `knowledge-agent/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
+| `knowledge-agent/src/consumer.ts` | Kafka consumer — `document.uploaded` → S3 download → ingest pipeline |
 | `knowledge-agent/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
 | `knowledge-agent/src/lib/retriever.ts` | Embed query → pgvector cosine search + pre-filters |
 | `knowledge-agent/src/lib/reranker.ts` | Cohere cross-encoder reranking |

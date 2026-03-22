@@ -15,6 +15,12 @@
 - Phase 4.6 — ClickHouse schema + BiAgent Kafka consumer (4 topics → ClickHouse read model, retry + DLQ)
 - Phase 4.7 — `query_analytics` native tool (BiAgent queries ClickHouse directly)
 - Phase 4.9 — knowledge-agent Kafka consumer (`document.uploaded` → S3 download → ingest pipeline; `source` = S3 key)
+- Phase 4.10 — End-to-end smoke test (9/9 checks passed: orders, products, customers → ClickHouse; documents → pgvector; compound RAG query)
+- Repo restructure — services under `services/`, knowledge-agent at root (peer of biagent), agents/ removed
+- Demo mode — `docker-compose.demo.yml` (pgvector + ClickHouse only), `npm run demo` (gateway silent + knowledge-agent), Kafka consumer skips gracefully when Kafka unavailable
+- ClickHouse warehouse seeded with 5 years of historical ecommerce data (8,942 orders, 17,863 items, 2,647 reviews)
+- System prompt cleanup — no markdown rule reinforced, stale tool references removed, follow-up offers banned, router logs its decision
+- S3 env var standardised to `S3_BUCKET_NAME` everywhere (was `AWS_S3_BUCKET` in s3Service)
 
 ---
 
@@ -26,12 +32,6 @@
 - [ ] Images (JPEG/PNG/TIFF): OCR via AWS Textract or Tesseract
 - [ ] Pass extracted text (or a `textS3Key`) in the `document.uploaded` event so knowledge-agent doesn't need to re-fetch for plain text
 - [ ] For complex formats (PPTX, DOCX): LibreOffice headless conversion → PDF → extract
-
-### 4.10 — End-to-end smoke test
-- [ ] Place an order → verify it appears in ClickHouse
-- [ ] Upload a document via back-office → verify it's queryable via RAG
-- [ ] Upload a document via back-office → verify it's queryable via RAG (kafka → knowledge-agent)
-- [ ] BiAgent query combining ClickHouse actuals + RAG context
 
 ---
 

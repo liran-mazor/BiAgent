@@ -87,10 +87,12 @@ A series of hardening changes:
 ## Current state
 
 **Name:** BiAgent
-**Architecture:** Monolith orchestrator (native tools + MCP) + 1 A2A agent (knowledge-agent) + API gateway
-**Tools:** `query_database` (MCP), `chart`, `forecast_revenue`, `email`, `web_search` (native), `query_knowledge` (A2A via gateway)
+**Architecture:** Monolith orchestrator (native tools) + 1 A2A agent (knowledge-agent) + API gateway
+**Tools:** `query_analytics` (native → ClickHouse), `chart`, `forecast_revenue`, `email`, `web_search` (native), `query_knowledge` (A2A via gateway)
 **Interfaces:** CLI, interactive CLI, Telegram bot, Alfred (RPi voice)
-**Monorepo:** npm workspaces — `agents/knowledge-agent`, `mcp-server/`, `gateway/`
+**Monorepo:** npm workspaces — `knowledge-agent/`, `gateway/`, `services/{orders,catalog,customers,reviews,backoffice}`, `common/`, `infra/`
+**Data:** ClickHouse warehouse (5 years historical), pgvector (9 knowledge base docs, 39 chunks)
+**Demo:** `npm run demo:infra` → `npm run demo:init` → `npm run seed-warehouse` → `npm run ingest` → `npm run demo` (terminal 1) + `npm start "query"` (terminal 2)
 
 ---
 

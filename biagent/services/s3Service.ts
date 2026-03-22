@@ -17,7 +17,7 @@ export async function uploadChartToS3(localPath: string): Promise<string> {
     const fileName = path.basename(localPath);
     
     const command = new PutObjectCommand({
-      Bucket: process.env.AWS_S3_BUCKET!,
+      Bucket: process.env.S3_BUCKET_NAME!,
       Key: `charts/${fileName}`,
       Body: fileContent,
       ContentType: 'image/png',
@@ -25,7 +25,7 @@ export async function uploadChartToS3(localPath: string): Promise<string> {
 
     await s3.send(command);
     
-    const url = `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/charts/${fileName}`;
+    const url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/charts/${fileName}`;
     
     return url;
   } catch (error) {

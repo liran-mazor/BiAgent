@@ -31,8 +31,11 @@
     "svc:backoffice": "tsx services/backoffice/src/index.ts",
     "outbox-worker": "tsx infra/src/outbox-worker.ts",
     "consumer": "tsx biagent/consumers/index.ts",
+    "demo:infra": "docker compose -f docker-compose.demo.yml up -d",
+    "demo:init": "tsx infra/src/init-demo.ts",
+    "demo": "concurrently --names \"gateway,agent\" --hide \"gateway\" -c \"dim,green\" \"npm run gateway\" \"npm run agent\"",
     "smoke-test": "tsx infra/src/smoke-test.ts",
-    "seed-warehouse": "tsx infra/src/seed-warehouse.ts"
+    "seed-warehouse": "tsx infra/src/clickhouse/seed-warehouse.ts"
   },
   "keywords": [],
   "author": "",
