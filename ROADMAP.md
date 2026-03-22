@@ -49,5 +49,4 @@
 ## Future
 
 - Persona-driven memory (user declares role on first message → drives summarization aggressiveness)
-- MCP over REST API (back-office APIs become the MCP target, DB is internal detail)
-- ClickHouse at scale with partitioning by date + category
+- ClickHouse partitioning — already implemented (PARTITION BY toYYYYMM on orders, order_items, reviews)
