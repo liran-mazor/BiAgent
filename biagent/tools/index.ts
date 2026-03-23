@@ -3,7 +3,6 @@ import { chartTool } from './chartTool';
 import { emailTool } from './emailTool';
 import { webSearchTool } from './webSearchTool';
 import { forecastTool } from './forecastTool';
-import { queryAnalyticsTool } from './queryAnalyticsTool';
 
 export const tools: Tool[] =
 [
@@ -11,7 +10,6 @@ export const tools: Tool[] =
   emailTool,
   webSearchTool,
   forecastTool,
-  queryAnalyticsTool,
 ];
 
 export function getToolByName(name: string): Tool | undefined {

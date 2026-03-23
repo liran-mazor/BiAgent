@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { ROUTER_SYSTEM_PROMPT } from '../biagent/prompts';
-import { MODEL } from '../biagent/models';
+import { ROUTER_SYSTEM_PROMPT } from '../core/prompts';
+import { MODEL } from '../core/models';
 import { anthropic } from '../config/clients';
 
 export type RouteResult =

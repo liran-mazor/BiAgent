@@ -257,11 +257,11 @@ export const chartTool: Tool<typeof ChartToolParams> = {
       // Save to file
       const timestamp = Date.now();
       const filename = `chart_${timestamp}.png`;
-      const filepath = join(process.cwd(), 'charts', filename);
-      
+      const filepath = join(process.cwd(), 'biagent/charts', filename);
+
       // Create charts directory if it doesn't exist
-      if (!existsSync(join(process.cwd(), 'charts'))) {
-        mkdirSync(join(process.cwd(), 'charts'));
+      if (!existsSync(join(process.cwd(), 'biagent/charts'))) {
+        mkdirSync(join(process.cwd(), 'biagent/charts'), { recursive: true });
       }
       
       writeFileSync(filepath, imageBuffer);

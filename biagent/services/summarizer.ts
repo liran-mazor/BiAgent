@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { SUMMARY_SYSTEM_PROMPT } from '../biagent/prompts';
-import { MODEL } from '../biagent/models';
+import { SUMMARY_SYSTEM_PROMPT } from '../core/prompts';
+import { MODEL } from '../core/models';
 import { anthropic } from '../config/clients';
 
 export interface StructuredSummary {

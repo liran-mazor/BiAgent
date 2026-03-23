@@ -17,7 +17,7 @@ export const initializeTempDirectory = () => {
 };
 
 export const getLatestChart = async () => {
-  const chartsDir = path.join(process.cwd(), 'charts');
+  const chartsDir = path.join(process.cwd(), 'biagent/charts');
   if (!fs.existsSync(chartsDir)) {
     return null;
   }

@@ -1,6 +1,6 @@
 import { validateEnv } from '../utils/validateEnv.js';
 validateEnv();
-import { Agent } from '../biagent/agent';
+import { Agent } from '../core/agent';
 
 async function main() {
   const question = process.argv.slice(2).join(' ');

@@ -1,7 +1,7 @@
 import readline from 'readline';
 import { validateEnv } from '../utils/validateEnv.js';
 validateEnv();
-import { Agent } from '../biagent/agent';
+import { Agent } from '../core/agent';
 
 export async function runInteractive() {
   console.log('\n🤖 BiAgent Interactive Mode');
