@@ -1,0 +1,152 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-migrate
+spec:
+  ttlSecondsAfterFinished: 300      # clean up pod 5 min after completion
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z postgres-svc 5432; do echo waiting for postgres; sleep 3; done
+      containers:
+        - name: migrate
+          image: postgres:15
+          env:
+            - name: PGHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: POSTGRES_HOST
+            - name: PGUSER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: POSTGRES_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: POSTGRES_PASSWORD
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: POSTGRES_DB
+          command:
+            - sh
+            - -c
+            - |
+              psql <<'SQL'
+
+              -- ── pgvector extension ──────────────────────────────────────────────
+              CREATE EXTENSION IF NOT EXISTS vector;
+
+              -- ── orders-service ──────────────────────────────────────────────────
+              CREATE TABLE IF NOT EXISTS orders (
+                id          SERIAL PRIMARY KEY,
+                customer_id INT NOT NULL,
+                status      TEXT NOT NULL DEFAULT 'placed',
+                total_amount NUMERIC(10,2) NOT NULL,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+
+              CREATE TABLE IF NOT EXISTS order_items (
+                id          SERIAL PRIMARY KEY,
+                order_id    INT NOT NULL REFERENCES orders(id),
+                product_id  INT NOT NULL,
+                quantity    INT NOT NULL,
+                price       NUMERIC(10,2) NOT NULL
+              );
+
+              -- ── catalog-service ─────────────────────────────────────────────────
+              CREATE TABLE IF NOT EXISTS products (
+                id          SERIAL PRIMARY KEY,
+                name        TEXT NOT NULL,
+                category    TEXT NOT NULL,
+                price       NUMERIC(10,2) NOT NULL,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+
+              CREATE TABLE IF NOT EXISTS price_history (
+                id          SERIAL PRIMARY KEY,
+                product_id  INT NOT NULL REFERENCES products(id),
+                old_price   NUMERIC(10,2) NOT NULL,
+                new_price   NUMERIC(10,2) NOT NULL,
+                changed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+
+              -- ── customers-service ───────────────────────────────────────────────
+              CREATE TABLE IF NOT EXISTS customers (
+                id          SERIAL PRIMARY KEY,
+                name        TEXT NOT NULL,
+                email       TEXT NOT NULL UNIQUE,
+                registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+
+              -- ── reviews-service ─────────────────────────────────────────────────
+              CREATE TABLE IF NOT EXISTS reviews (
+                id          SERIAL PRIMARY KEY,
+                product_id  INT NOT NULL REFERENCES products(id),
+                customer_id INT NOT NULL REFERENCES customers(id),
+                rating      SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment     TEXT,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+
+              -- ── backoffice-service ──────────────────────────────────────────────
+              CREATE TABLE IF NOT EXISTS targets (
+                id          SERIAL PRIMARY KEY,
+                year        INT NOT NULL,
+                month       INT NOT NULL,
+                category    TEXT NOT NULL,
+                revenue_target NUMERIC(10,2) NOT NULL,
+                orders_target  INT,
+                UNIQUE(year, month, category)
+              );
+
+              CREATE TABLE IF NOT EXISTS documents (
+                id          SERIAL PRIMARY KEY,
+                s3_key      TEXT NOT NULL UNIQUE,
+                filename    TEXT NOT NULL,
+                uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+              );
+
+              -- ── outbox (shared — all services write here) ───────────────────────
+              CREATE TABLE IF NOT EXISTS outbox (
+                id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                aggregate_type TEXT NOT NULL,
+                aggregate_id   TEXT NOT NULL,
+                type           TEXT NOT NULL,
+                payload        JSONB NOT NULL,
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                retry_count    INT          NOT NULL DEFAULT 0,
+                next_retry_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+                last_error     TEXT
+              );
+
+              CREATE INDEX IF NOT EXISTS idx_outbox_pending ON outbox(next_retry_at)
+                WHERE retry_count < 3;
+
+              -- ── knowledge-agent (pgvector) ──────────────────────────────────────
+              CREATE TABLE IF NOT EXISTS documents_chunks (
+                id          SERIAL PRIMARY KEY,
+                source      TEXT NOT NULL,
+                title       TEXT NOT NULL,
+                doc_type    TEXT NOT NULL,
+                year        INT,
+                chunk_index INT NOT NULL,
+                content     TEXT NOT NULL,
+                embedding   vector(1536)
+              );
+
+              CREATE INDEX IF NOT EXISTS documents_chunks_embedding_idx
+                ON documents_chunks USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = 100);
+
+              SQL

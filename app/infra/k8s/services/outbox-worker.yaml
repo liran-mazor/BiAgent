@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: outbox-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: outbox-worker
+  template:
+    metadata:
+      labels:
+        app: outbox-worker
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox
+          command: [sh, -c, "until nc -z postgres-svc 5432; do sleep 2; done"]
+        - name: wait-for-kafka
+          image: busybox
+          command: [sh, -c, "until nc -z kafka-svc 9092; do sleep 2; done"]
+      containers:
+        - name: outbox-worker
+          image: biagent/outbox-worker:latest
+          env:
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: POSTGRES_HOST
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: POSTGRES_PASSWORD
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KAFKA_BROKERS
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            exec:
+              command: [node, -e, "process.exit(0)"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
