@@ -15,8 +15,8 @@ export async function saveDocument(doc: Document): Promise<void> {
     );
 
     await client.query(
-      `INSERT INTO outbox(topic, payload) VALUES($1, $2)`,
-      [Topics.DocumentUploaded, JSON.stringify(doc)],
+      `INSERT INTO outbox(aggregate_type, aggregate_id, type, payload) VALUES($1, $2, $3, $4)`,
+      [Topics.DocumentUploaded, String(doc.id), 'DocumentUploaded', JSON.stringify(doc)],
     );
 
     await client.query('COMMIT');

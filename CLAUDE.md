@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Demo / interview setup (one-time per fresh environment)
-npm run demo:infra            # docker compose -f docker-compose.demo.yml up -d (pgvector + ClickHouse)
+npm run demo:infra            # docker compose up -d (pgvector + ClickHouse)
 npm run demo:init             # Apply schemas — no Kafka required
-npm run seed-warehouse        # Seed ClickHouse with 5 years of historical data
-npm run ingest                # Seed pgvector with 9 knowledge base docs from docs/
+npm run seed-warehouse        # Seed ClickHouse with 5 years of historical data (once — volumes persist across reboots)
+npm run ingest                # Seed pgvector with 9 knowledge base docs from app/knowledge/docs/
 
 # Run the demo stack (two terminals)
-npm run demo                  # Terminal 1: gateway (silent) + knowledge-agent
+npm run demo                  # Terminal 1: knowledge-agent + analytics (silent)
 npm start "query"             # Terminal 2: single query via CLI
 
 # Full dev stack (requires Kafka running)
@@ -42,28 +42,19 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 7. **FUNCTION_CALL path** → `runFunctionCall()`: one tool call + one final answer (Haiku), flat context, no loop
 8. **REACT path** → iterative loop: `callLLM()` → parallel `executeTool()` with circuit breaker → repeat until final answer (Sonnet)
 
-### Three-Tier Tool Resolution
+### Two-Tier Tool Resolution
 - **Native** — in-process (chart, email, web_search, forecast_revenue). No circuit breaker — fail fast, no network risk.
-- **MCP** — STDIO via `mcp-server/` (query_database → PostgreSQL). Circuit breaker: 5s timeout.
-- **A2A** — HTTP via gateway (port 3000) → knowledge-agent (port 3001). Circuit breaker: 30s timeout.
+- **A2A** — HTTP direct to analytics (port 3002) or knowledge-agent (port 3001). Circuit breaker: 30s timeout.
 
 ### Tool Inventory
 | Tool | Protocol | Notes |
 |------|----------|-------|
-| `query_analytics` | Native | SQL SELECT against ClickHouse warehouse |
+| `query_analytics` | A2A | SQL SELECT via analytics agent → ClickHouse warehouse |
+| `query_knowledge` | A2A | RAG pipeline via knowledge-agent — pgvector + Cohere rerank + gpt-4o-mini |
 | `chart` | Native | Chart.js → PNG → S3 upload |
 | `forecast_revenue` | Native | Linear trend forecasting |
 | `email` | Native | SMTP via nodemailer |
 | `web_search` | Native | Tavily search API |
-| `query_knowledge` | A2A | RAG pipeline — pgvector + Cohere rerank + gpt-4o-mini synthesis |
-
-### Gateway
-`gateway/src/index.ts` — Express API gateway on port 3000. All A2A traffic routes through it.
-- JWT authentication on `POST /:agent/tasks` (shared `JWT_SECRET`)
-- Rate limiting: 60 req/min per IP (configurable via env)
-- Route registry: `UPSTREAM_AGENTS` maps path prefix → upstream URL
-- Agent Card (`GET /:agent/.well-known/agent.json`) — public, no auth
-- Adding a new A2A agent = one line in `UPSTREAM_AGENTS`
 
 ### Prompt Caching (3/4 slots used)
 - Slot 1: System prompt (`cache_control: ephemeral` on system content block)
@@ -80,7 +71,7 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 Token count tracked per-conversation. Triggers structured summarization at 170k tokens (85% of 200k limit). Haiku compresses history via forced tool use into a `StructuredSummary` (topic, key_facts, resolved_entities, queries_run, open_questions). `formatSummaryForContext(summary, query)` selectively injects only relevant fields based on the current query. Lives in `biagent/services/summarizer.ts`.
 
 ### Circuit Breaker
-`biagent/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied to MCP and A2A tools only (native tools are in-process). MCP: 5s timeout. A2A: 30s timeout. Both: 50% error threshold, 10s reset.
+`biagent/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied to A2A tools only (native tools are in-process). A2A: 30s timeout, 50% error threshold, 10s reset.
 
 The circuit breaker is **closed-loop**: a module-level `openCircuits: Set<string>` is updated on every `open`/`close` event. `getOpenCircuits()` is called once per `run()` and passed to both `routeQuery()` (for availability routing) and `createUserPrompt()` (for ReAct loop warnings).
 
@@ -99,22 +90,30 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | `biagent/config/clients.ts` | Shared Anthropic + OpenAI singletons, LangSmith-wrapped |
 | `biagent/tools/` | Native tools: chart, email, web_search, forecast_revenue |
 | `biagent/a2a/a2aClient.ts` | `initializeA2ATools()` — signs JWT, fetches Agent Cards, registers tasks |
-| `biagent/a2a/a2aServers.ts` | A2A agent registry — points to gateway |
+| `biagent/a2a/a2aServers.ts` | A2A agent registry — direct URLs (KNOWLEDGE_URL + ANALYTICS_URL) |
 | `biagent/services/router.ts` | Haiku router → `RouteResult` (pattern + availability) |
 | `biagent/services/summarizer.ts` | Structured history summarization + selective injection |
-| `biagent/utils/circuitBreaker.ts` | opossum circuit breaker registry (MCP + A2A only) |
+| `biagent/utils/circuitBreaker.ts` | opossum circuit breaker registry (A2A only) |
 | `biagent/utils/validateEnv.ts` | Required env var validation — exits on startup if missing |
 | `biagent/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
-| `gateway/src/index.ts` | API gateway — JWT auth + rate limiting + proxy |
-| `biagent/tools/queryAnalyticsTool.ts` | Native ClickHouse tool — SELECT only, uses shared clickhouse client |
-| `knowledge-agent/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
-| `knowledge-agent/src/consumer.ts` | Kafka consumer — `document.uploaded` → S3 download → ingest pipeline |
-| `knowledge-agent/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
-| `knowledge-agent/src/lib/retriever.ts` | Embed query → pgvector cosine search + pre-filters |
-| `knowledge-agent/src/lib/reranker.ts` | Cohere cross-encoder reranking |
-| `knowledge-agent/src/lib/synthesizer.ts` | gpt-4o-mini synthesis over reranked chunks |
-| `knowledge-agent/src/config.ts` | Model names + DB config — single source of truth |
-| `knowledge-agent/src/scripts/ingest.ts` | Offline ingestion — LLM metadata + embed + upsert |
+| `app/analytics/src/index.ts` | Analytics A2A agent — port 3002, HTTP + Kafka consumers |
+| `app/analytics/src/app.ts` | Analytics Agent Card + `/tasks` handler (query_analytics) |
+| `app/knowledge/docs/` | RAG knowledge base — 9 markdown docs (ingest reads from here) |
+| `app/infra/local/` | Local scripts: init-demo.ts, seed-warehouse, postgres/clickhouse schemas |
+| `app/infra/k8s/` | All K8s manifests: cluster, config, db, kafka, ingress, jobs, services |
+| `app/infra/k8s/ingress/` | Kong plugins (JWT + rate limiting) + Ingress routing rules |
+| `app/analytics/src/lib/executor.ts` | Executes SELECT queries against ClickHouse |
+| `app/analytics/src/lib/batchBuffer.ts` | Generic buffer — flushes to ClickHouse on count (100) or timer (5s) |
+| `app/analytics/src/consumers/` | 4 KafkaListener subclasses writing to ClickHouse via BatchBuffer |
+| `app/knowledge/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
+| `app/knowledge/src/consumers/index.ts` | Kafka consumer lifecycle — DocumentUploadedListener wiring |
+| `app/knowledge/src/consumers/DocumentUploadedListener.ts` | `document.uploaded` → S3 download → ingest pipeline |
+| `app/knowledge/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
+| `app/knowledge/src/lib/retriever.ts` | Embed query → pgvector cosine search; filters passed in by caller (no inference) |
+| `app/knowledge/src/lib/reranker.ts` | Cohere cross-encoder reranking |
+| `app/knowledge/src/lib/synthesizer.ts` | gpt-4o-mini synthesis over reranked chunks |
+| `app/knowledge/src/config.ts` | Model names + DB config — single source of truth |
+| `app/knowledge/src/scripts/ingest.ts` | Offline ingestion — LLM metadata + embed + upsert |
 
 ### Alfred Voice Interface
 Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
@@ -137,7 +136,7 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 - `biagent/interfaces/alfred.ts` — Alfred wake word loop + chart display
 
 ### Project Description
-BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + a knowledge-agent A2A service that answers questions from internal documents via a full RAG pipeline (pgvector + Cohere rerank + gpt-4o-mini synthesis). All A2A traffic routes through an Express gateway with JWT auth and rate limiting. Two agents, one gateway, one HTTP bridge.
+BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + two A2A agents: knowledge-agent (RAG pipeline — pgvector + Cohere rerank + gpt-4o-mini) and analytics (Kafka consumers → ClickHouse batch writes + SQL query endpoint). BiAgent holds no database credentials — all warehouse queries go through the analytics A2A agent. In production (K8s), Kong handles ingress, JWT auth, and rate limiting.
 
 ### Pitch Presentation
 `pitch/biagent-presentation.html` — standalone 3-slide reveal-style HTML. No build step; open directly in a browser.
@@ -159,10 +158,9 @@ BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + a kno
 ANTHROPIC_API_KEY
 OPENAI_API_KEY
 TAVILY_API_KEY
-COHERE_API_KEY
-JWT_SECRET                   # Shared secret for gateway JWT auth
-GATEWAY_URL=http://localhost:3000
-KNOWLEDGE_AGENT_URL=http://localhost:3001
+JWT_SECRET                   # Signed per A2A call (verified by Kong in K8s)
+KNOWLEDGE_URL=http://localhost:3001   # Direct agent URL (local/demo)
+ANALYTICS_URL=http://localhost:3002   # Direct agent URL (local/demo)
 TELEGRAM_BOT_TOKEN
 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION / S3_BUCKET_NAME
 LANGSMITH_TRACING=true
@@ -171,7 +169,4 @@ LANGSMITH_API_KEY
 LANGSMITH_PROJECT=BiAgent
 PICOVOICE_ACCESS_KEY         # Alfred only
 GOOGLE_APPLICATION_CREDENTIALS  # Alfred TTS only
-RAG_TIMEOUT_MS=30000         # Optional — default 30s
-RATE_LIMIT_WINDOW_MS=60000   # Optional — default 1 minute
-RATE_LIMIT_MAX_REQUESTS=60   # Optional — default 60 req/min
 ```

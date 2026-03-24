@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  # PostgreSQL
+  POSTGRES_HOST: postgres-svc
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: biagent
+  POSTGRES_USER: biagent
+
+  # ClickHouse
+  CLICKHOUSE_HOST: clickhouse-svc
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_USER: biagent
+
+  # Kafka
+  KAFKA_BROKERS: kafka-svc:9092
+  KAFKA_GROUP_ID: biagent
+
+  # Internal service URLs — port 80 (cluster-internal DNS, no port suffix needed)
+  KNOWLEDGE_URL: http://knowledge-svc
+  ANALYTICS_URL: http://analytics-svc
+
+  # Timeouts
+  RAG_TIMEOUT_MS: "30000"
+
+  # Observability
+  LANGSMITH_TRACING: "true"
+  LANGSMITH_ENDPOINT: https://api.smith.langchain.com

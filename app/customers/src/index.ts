@@ -1,5 +1,5 @@
 import 'dotenv/config';
-const missing = ['POSTGRES_HOST', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB'].filter(k => !process.env[k]);
+const missing = ['POSTGRES_HOST', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB', 'AUTH_SECRET'].filter(k => !process.env[k]);
 if (missing.length) { console.error(`❌  Missing env vars: ${missing.join(', ')}`); process.exit(1); }
 import app from './app';
 

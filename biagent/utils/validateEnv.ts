@@ -12,7 +12,7 @@ interface EnvSpec {
 
 const BIAGENT_ENV: EnvSpec[] = [
   { key: 'ANTHROPIC_API_KEY',    required: true,  description: 'Claude API' },
-  { key: 'JWT_SECRET',           required: true,  description: 'A2A gateway auth' },
+  { key: 'ECOMMERCE_JWT_SECRET', required: false, description: 'Kong JWT secret (K8s only, not needed in demo)' },
   { key: 'OPENAI_API_KEY',       required: true,  description: 'Embeddings + extraction' },
   { key: 'TAVILY_API_KEY',       required: true,  description: 'Web search tool' },
 { key: 'AWS_ACCESS_KEY_ID',    required: true,  description: 'S3 chart upload' },

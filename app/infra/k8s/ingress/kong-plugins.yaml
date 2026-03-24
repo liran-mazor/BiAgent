@@ -1,0 +1,57 @@
+# Kong Ingress Controller is installed via Helm (not in this folder):
+#   helm repo add kong https://charts.konghq.com
+#   helm install kong kong/ingress -n kong --create-namespace
+
+# ── Consumer representing the platform's auth system ──────────────────────────
+# Kong resolves the JWT iss claim → finds this consumer → verifies signature.
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: app-auth
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: app-auth
+credentials:
+  - app-auth-credential
+
+---
+# ── JWT verification plugin ────────────────────────────────────────────────────
+# Enforces JWT on all routes that reference this plugin.
+# Kong decodes token → reads iss → looks up consumer credential → verifies signature + expiry.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt-verify
+plugin: jwt
+config:
+  claims_to_verify:
+    - exp                     # reject expired tokens
+
+---
+# ── Forward user identity downstream ──────────────────────────────────────────
+# After JWT is verified, extract the 'sub' claim (customerId set at signup)
+# and inject it as x-user-id header before forwarding to the upstream service.
+# Services read req.headers['x-user-id'] — they never touch the JWT.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: inject-user-id
+plugin: request-transformer
+config:
+  add:
+    headers:
+      - "x-user-id:$(jwt.claims.sub)"
+
+---
+# ── Rate limiting ──────────────────────────────────────────────────────────────
+# 60 requests/minute per authenticated consumer.
+# policy: local = per-pod counter. Use redis for multi-pod deployments.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limit
+plugin: rate-limiting
+config:
+  minute: 60
+  policy: local
+  limit_by: consumer

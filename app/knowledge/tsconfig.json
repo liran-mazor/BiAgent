@@ -6,7 +6,10 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@biagent/common": ["../common/src/index.ts"]
+    }
   },
-  "include": ["local/**/*"]
+  "include": ["src/**/*"]
 }

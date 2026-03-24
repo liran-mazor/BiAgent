@@ -1,0 +1,79 @@
+/**
+ * Vector retrieval — embed question → pgvector cosine search → top-K chunks.
+ * Pure library: no side effects, no CLI code. Imported by index.ts pipeline.
+ */
+
+import OpenAI from 'openai';
+import { Pool } from 'pg';
+import { EMBEDDING_MODEL, DB_CONFIG } from '../config.js';
+
+const TOP_K = 20; // candidates before reranking
+
+// Lazy — instantiated on first call so dotenv has already run by then.
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) _openai = new OpenAI();
+  return _openai;
+}
+
+let _pool: Pool | null = null;
+function getPool(): Pool {
+  if (!_pool) _pool = new Pool(DB_CONFIG);
+  return _pool;
+}
+
+export interface RetrievedChunk {
+  content:     string;
+  source:      string;
+  doc_type:    string;
+  year:        number | null;
+  chunk_index: number;
+  similarity:  number;
+}
+
+export interface Filters {
+  doc_type?: string;
+  year?:     number;
+}
+
+// ── Retrieve ──────────────────────────────────────────────────────────────────
+
+export async function retrieve(
+  question: string,
+  filters: Filters = {},
+  embeddingModel: string = EMBEDDING_MODEL,
+): Promise<RetrievedChunk[]> {
+  // 1. Embed the question — must use the same model used at index time
+  const embeddingResponse = await getOpenAI().embeddings.create({
+    model: embeddingModel,
+    input: question,
+  });
+  const vectorLiteral = `[${embeddingResponse.data[0].embedding.join(',')}]`;
+
+  // 3. Cosine similarity search
+  // `<=>` is pgvector cosine distance (0 = identical, 2 = opposite)
+  // `1 - distance` converts to similarity (1 = identical)
+  // NULL params disable the filter clause
+  const { rows } = await getPool().query<RetrievedChunk & { similarity: number }>(
+    `SELECT
+       content,
+       source,
+       doc_type,
+       year,
+       chunk_index,
+       1 - (embedding <=> $1::vector) AS similarity
+     FROM rag_documents
+     WHERE ($2::text IS NULL OR doc_type = $2)
+       AND ($3::int  IS NULL OR year     = $3)
+     ORDER BY embedding <=> $1::vector
+     LIMIT $4`,
+    [
+      vectorLiteral,
+      filters.doc_type ?? null,
+      filters.year     ?? null,
+      TOP_K,
+    ],
+  );
+
+  return rows;
+}

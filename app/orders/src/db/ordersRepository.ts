@@ -27,8 +27,8 @@ export async function saveOrder(order: Order): Promise<void> {
     }
 
     await client.query(
-      `INSERT INTO outbox(topic, payload) VALUES($1, $2)`,
-      [Topics.OrderPlaced, JSON.stringify(order)],
+      `INSERT INTO outbox(aggregate_type, aggregate_id, type, payload) VALUES($1, $2, $3, $4)`,
+      [Topics.OrderPlaced, String(order.id), 'OrderPlaced', JSON.stringify(order)],
     );
 
     await client.query('COMMIT');

@@ -9,10 +9,6 @@ export type RouteResult =
 
 export async function routeQuery(query: string, openCircuits: string[] = []): Promise<RouteResult> {
   try {
-    const unavailableContext = openCircuits.length > 0
-      ? `\nUnavailable tools: ${openCircuits.join(', ')}`
-      : '';
-
     const response = await anthropic.messages.create({
       model: MODEL.Simple,
       max_tokens: 200,
@@ -41,7 +37,7 @@ export async function routeQuery(query: string, openCircuits: string[] = []): Pr
       messages: [
         {
           role: 'user',
-          content: `Query: "${query}"${unavailableContext}\n\nRoute:`
+          content: `Query: "${query}"${openCircuits.length > 0 ? `\nUnavailable tools: ${openCircuits.join(', ')}` : ''}\n\nRoute:`,
         }
       ]
     });

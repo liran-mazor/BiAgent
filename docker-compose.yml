@@ -1,10 +1,22 @@
 version: '3.8'
 
+# Minimal stack for demos and interviews.
+# No Kafka, no microservices — business data is seeded directly into ClickHouse.
+#
+# Services:
+#   pgvector  — knowledge-agent only (pgvector for RAG document embeddings)
+#   clickhouse — BiAgent analytical warehouse (all business queries go here)
+#
+# Usage:
+#   docker-compose -f docker-compose.demo.yml up -d
+#   npm run seed
+#   npm run interactive
+
 services:
 
   # ── pgvector ───────────────────────────────────────────────────────────────
   # Used exclusively by knowledge-agent for storing document embeddings.
-  # BiAgent does NOT connect here — it only queries ClickHouse.
+  # BiAgent does NOT connect here.
   pgvector:
     image: pgvector/pgvector:pg16
     container_name: biagent-pgvector
@@ -18,8 +30,8 @@ services:
       - pgvector-data:/var/lib/postgresql/data
 
   # ── ClickHouse ─────────────────────────────────────────────────────────────
-  # BiAgent analytical read model — all business queries go here.
-  # In dev: seeded directly. In prod: written to by the Kafka consumer.
+  # BiAgent analytical warehouse — all business queries go here.
+  # In demo mode: seeded directly. In production: written to by Kafka consumer.
   clickhouse:
     image: clickhouse/clickhouse-server:24
     container_name: biagent-clickhouse
@@ -28,41 +40,11 @@ services:
       CLICKHOUSE_USER:     ${CLICKHOUSE_USER:-biagent}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-biagent123}
     ports:
-      - "8123:8123"   # HTTP interface (queries)
-      - "9000:9000"   # Native TCP interface
+      - "8123:8123"
+      - "9000:9000"
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-
-  # ── Kafka (KRaft — no ZooKeeper) ───────────────────────────────────────────
-  # Event bus between microservices and the ClickHouse consumer.
-  kafka:
-    image: apache/kafka:3.7.0
-    container_name: biagent-kafka
-    environment:
-      # KRaft mode — no ZooKeeper
-      KAFKA_NODE_ID:                         1
-      KAFKA_PROCESS_ROLES:                   broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS:        1@kafka:9093
-      # Two listeners: PLAINTEXT for inter-container, EXTERNAL for host access
-      KAFKA_LISTENERS:                       PLAINTEXT://:9092,EXTERNAL://:29092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS:            PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:  PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES:       CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME:      PLAINTEXT
-      # Required for single-broker setup
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:              1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR:      1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR:                 1
-      # Sensible defaults for local dev
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE:       "false"
-      KAFKA_LOG_RETENTION_HOURS:             168
-    ports:
-      - "9092:9092"    # internal (container-to-container)
-      - "29092:29092"  # external (host access)
-    volumes:
-      - kafka-data:/bitnami/kafka
 
 volumes:
   pgvector-data:
   clickhouse-data:
-  kafka-data:

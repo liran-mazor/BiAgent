@@ -1,0 +1,83 @@
+# All external HTTP traffic routes through Kong.
+# strip-path: true — Kong removes the prefix before forwarding (e.g. /knowledge/tasks → /tasks).
+# All routes require JWT auth + are rate limited at 60 req/min per consumer.
+#
+# External domain: api.app.com
+# TLS certificate managed by cert-manager (Let's Encrypt).
+#
+# A2A agents (called by BiAgent):
+#   api.app.com/knowledge  → knowledge-svc:80  (container 3001)
+#   api.app.com/analytics  → analytics-svc:80  (container 3002)
+#
+# Microservices (write-side OLTP):
+#   api.app.com/orders     → orders-svc:80     (container 4001)
+#   api.app.com/catalog    → catalog-svc:80    (container 4002)
+#   api.app.com/customers  → customers-svc:80  (container 4003)
+#   api.app.com/reviews    → reviews-svc:80    (container 4004)
+#   api.app.com/backoffice → backoffice-svc:80 (container 4005)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  annotations:
+    konghq.com/strip-path: "true"
+    konghq.com/plugins: jwt-verify,inject-user-id,rate-limit
+spec:
+  ingressClassName: kong
+  tls:
+    - hosts:
+        - api.app.com
+      secretName: app-tls-cert   # provisioned automatically by cert-manager
+  rules:
+    - host: api.app.com
+      http:
+        paths:
+          - path: /knowledge
+            pathType: Prefix
+            backend:
+              service:
+                name: knowledge-svc
+                port:
+                  number: 80
+          - path: /analytics
+            pathType: Prefix
+            backend:
+              service:
+                name: analytics-svc
+                port:
+                  number: 80
+          - path: /orders
+            pathType: Prefix
+            backend:
+              service:
+                name: orders-svc
+                port:
+                  number: 80
+          - path: /catalog
+            pathType: Prefix
+            backend:
+              service:
+                name: catalog-svc
+                port:
+                  number: 80
+          - path: /customers
+            pathType: Prefix
+            backend:
+              service:
+                name: customers-svc
+                port:
+                  number: 80
+          - path: /reviews
+            pathType: Prefix
+            backend:
+              service:
+                name: reviews-svc
+                port:
+                  number: 80
+          - path: /backoffice
+            pathType: Prefix
+            backend:
+              service:
+                name: backoffice-svc
+                port:
+                  number: 80

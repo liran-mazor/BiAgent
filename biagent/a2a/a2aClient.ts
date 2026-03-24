@@ -1,32 +1,33 @@
 import jwt from 'jsonwebtoken';
 import { A2ATool } from './types.js';
 import { A2AAgentConfig } from './a2aServers.js';
+import { markCircuitOpen } from '../utils/circuitBreaker.js';
 
 const RETRY_ATTEMPTS = 5;
 const RETRY_DELAY_MS = 2000;
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
-// Generates a short-lived token signed with the shared secret.
-// The gateway verifies this on every /tasks call.
-// Token is generated per-call — no stale token risk.
+// Signs a short-lived token for each A2A call.
+// In K8s: Kong verifies this against the consumer credential provisioned via admin API.
+// In local demo: agents are called directly — no auth enforced, header is omitted.
 
-function generateToken(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET is not set');
-  return jwt.sign({ service: 'biagent' }, secret, { expiresIn: '5m' });
+function generateToken(): string | null {
+  const secret = process.env.ECOMMERCE_JWT_SECRET;
+  if (!secret) return null;  // local demo mode — no auth
+  return jwt.sign({ iss: 'biagent' }, secret, { expiresIn: '5m' });
 }
 
 // ── Agent Card discovery ──────────────────────────────────────────────────────
 
-async function fetchAgentCardWithRetry(url: string): Promise<any> {
+async function fetchAgentCardWithRetry(url: string, agentName: string): Promise<any> {
   for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Failed to fetch agent card: ${response.statusText}`);
       return await response.json();
     } catch {
-      if (attempt === RETRY_ATTEMPTS) throw new Error(`A2A agent not ready after ${RETRY_ATTEMPTS} attempts`);
-      console.log(`\n⏳ Waiting for A2A agent at ${url} ... (${attempt}/${RETRY_ATTEMPTS})`);
+      if (attempt === RETRY_ATTEMPTS) throw new Error(`not ready after ${RETRY_ATTEMPTS} attempts`);
+      console.log(`⏳ [a2aClient] ${agentName} waiting ... (${attempt}/${RETRY_ATTEMPTS})`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     }
   }
@@ -37,22 +38,20 @@ async function fetchAgentCardWithRetry(url: string): Promise<any> {
 export async function initializeA2ATools(agents: A2AAgentConfig[]): Promise<A2ATool[]> {
   const allTools: A2ATool[] = [];
 
-  await Promise.all(agents.map(async ({ url }) => {
+  await Promise.all(agents.map(async ({ name: agentName, url, toolNames }) => {
     try {
-      const agentCard = await fetchAgentCardWithRetry(`${url}/.well-known/agent.json`);
+      const agentCard = await fetchAgentCardWithRetry(`${url}/.well-known/agent.json`, agentName);
       const tools: A2ATool[] = agentCard.capabilities.tasks.map((task: any) => ({
         name: task.name,
         description: task.description,
         input_schema: task.input_schema,
         execute: async (input: any) => {
-          // Fresh JWT per call — short-lived token sent to gateway for verification
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           const token = generateToken();
+          if (token) headers['Authorization'] = `Bearer ${token}`;
           const res = await fetch(`${url}/tasks`, {
             method: 'POST',
-            headers: {
-              'Content-Type':  'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
+            headers,
             body: JSON.stringify({ task: task.name, input }),
           });
           if (!res.ok) {
@@ -64,7 +63,10 @@ export async function initializeA2ATools(agents: A2AAgentConfig[]): Promise<A2AT
       }));
       allTools.push(...tools);
     } catch (error: any) {
-      console.warn(`⚠️  A2A agent unavailable at ${url}: ${error.message}`);
+      console.warn(`⚠️  [a2aClient] ${agentName} unavailable — ${error.message}`);
+      for (const toolName of toolNames) {
+        markCircuitOpen(toolName);
+      }
     }
   }));
 

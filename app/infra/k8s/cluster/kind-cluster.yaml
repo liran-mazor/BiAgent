@@ -1,0 +1,21 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+nodes:
+  - role: control-plane
+    # Map ports so Kong ingress is reachable from the host
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+    # Host directories mounted into the kind node — data survives cluster deletion
+    extraMounts:
+      - hostPath: /home/liran/kind-data/postgres
+        containerPath: /data/postgres
+      - hostPath: /home/liran/kind-data/clickhouse
+        containerPath: /data/clickhouse
+      - hostPath: /home/liran/kind-data/kafka
+        containerPath: /data/kafka

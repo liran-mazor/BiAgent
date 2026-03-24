@@ -19,6 +19,10 @@ export function getOpenCircuits(): string[] {
   return Array.from(openCircuits);
 }
 
+export function markCircuitOpen(name: string): void {
+  openCircuits.add(name);
+}
+
 export function getCircuitBreaker(name: string, fn?: (...args: any[]) => Promise<any>, isA2A = false): CircuitBreaker {
   if (!breakers.has(name)) {
     if (!fn) throw new Error(`Circuit breaker "${name}" not initialized — fn required on first call`);

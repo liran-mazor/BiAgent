@@ -15,8 +15,8 @@ export async function saveReview(review: Review): Promise<void> {
     );
 
     await client.query(
-      `INSERT INTO outbox(topic, payload) VALUES($1, $2)`,
-      [Topics.ReviewCreated, JSON.stringify(review)],
+      `INSERT INTO outbox(aggregate_type, aggregate_id, type, payload) VALUES($1, $2, $3, $4)`,
+      [Topics.ReviewCreated, String(review.id), 'ReviewCreated', JSON.stringify(review)],
     );
 
     await client.query('COMMIT');

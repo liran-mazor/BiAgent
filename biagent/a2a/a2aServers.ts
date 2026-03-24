@@ -1,12 +1,16 @@
 export interface A2AAgentConfig {
+  name: string;
   url: string;
+  toolNames: string[];  // known tool names — used to pre-open circuits when agent is unreachable
 }
 
-// All A2A traffic routes through the gateway.
-// Gateway URL uses /:agent prefix convention — gateway strips it before forwarding.
-const GATEWAY_URL = process.env.GATEWAY_URL ?? 'http://localhost:3000';
+// Direct agent URLs — no gateway layer.
+// In local demo: agents run on their own ports.
+// In K8s: Kong routes externally, internal service URLs used here.
+const KNOWLEDGE_URL = process.env.KNOWLEDGE_URL ?? 'http://localhost:3001';
+const ANALYTICS_URL = process.env.ANALYTICS_URL ?? 'http://localhost:3002';
 
 export const a2aAgents: A2AAgentConfig[] = [
-  { url: `${GATEWAY_URL}/knowledge` },
-  { url: `${GATEWAY_URL}/analytics` },
+  { name: 'knowledge', url: KNOWLEDGE_URL, toolNames: ['query_knowledge'] },
+  { name: 'analytics', url: ANALYTICS_URL, toolNames: ['query_analytics'] },
 ];

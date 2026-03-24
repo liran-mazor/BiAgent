@@ -15,8 +15,8 @@ export async function saveProduct(product: Product): Promise<void> {
     );
 
     await client.query(
-      `INSERT INTO outbox(topic, payload) VALUES($1, $2)`,
-      [Topics.ProductCreated, JSON.stringify(product)],
+      `INSERT INTO outbox(aggregate_type, aggregate_id, type, payload) VALUES($1, $2, $3, $4)`,
+      [Topics.ProductCreated, String(product.id), 'ProductCreated', JSON.stringify(product)],
     );
 
     await client.query('COMMIT');

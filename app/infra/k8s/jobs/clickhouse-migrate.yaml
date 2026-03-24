@@ -1,0 +1,116 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clickhouse-migrate
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-clickhouse
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z clickhouse-svc 8123; do echo waiting for clickhouse; sleep 3; done
+      containers:
+        - name: migrate
+          image: curlimages/curl:latest
+          env:
+            - name: CLICKHOUSE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: CLICKHOUSE_HOST
+            - name: CLICKHOUSE_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: CLICKHOUSE_USER
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: CLICKHOUSE_PASSWORD
+          command:
+            - sh
+            - -c
+            - |
+              CH="http://$CLICKHOUSE_USER:$CLICKHOUSE_PASSWORD@$CLICKHOUSE_HOST:8123"
+
+              execute() {
+                curl -sf "$CH" --data-binary "$1"
+              }
+
+              execute "CREATE DATABASE IF NOT EXISTS biagent"
+
+              execute "
+                CREATE TABLE IF NOT EXISTS biagent.orders (
+                  id           UInt32,
+                  customer_id  UInt32,
+                  total_amount Float64,
+                  placed_at    DateTime
+                ) ENGINE = MergeTree()
+                PARTITION BY toYYYYMM(placed_at)
+                ORDER BY (placed_at, id)
+              "
+
+              execute "
+                CREATE TABLE IF NOT EXISTS biagent.order_items (
+                  order_id    UInt32,
+                  product_id  UInt32,
+                  quantity    UInt32,
+                  price       Float64,
+                  placed_at   DateTime
+                ) ENGINE = MergeTree()
+                PARTITION BY toYYYYMM(placed_at)
+                ORDER BY (placed_at, order_id)
+              "
+
+              execute "
+                CREATE TABLE IF NOT EXISTS biagent.products (
+                  id          UInt32,
+                  name        String,
+                  category    LowCardinality(String),
+                  price       Float64,
+                  created_at  DateTime
+                ) ENGINE = MergeTree()
+                ORDER BY (category, id)
+              "
+
+              execute "
+                CREATE TABLE IF NOT EXISTS biagent.customers (
+                  id            UInt32,
+                  email         String,
+                  name          String,
+                  registered_at DateTime
+                ) ENGINE = MergeTree()
+                ORDER BY id
+              "
+
+              execute "
+                CREATE TABLE IF NOT EXISTS biagent.reviews (
+                  id          UInt32,
+                  product_id  UInt32,
+                  customer_id UInt32,
+                  rating      UInt8,
+                  comment     Nullable(String),
+                  created_at  DateTime
+                ) ENGINE = MergeTree()
+                PARTITION BY toYYYYMM(created_at)
+                ORDER BY (created_at, id)
+              "
+
+              execute "
+                CREATE TABLE IF NOT EXISTS biagent.monthly_targets (
+                  year           UInt16,
+                  month          UInt8,
+                  category       LowCardinality(String),
+                  revenue_target Float64,
+                  orders_target  Nullable(UInt32)
+                ) ENGINE = MergeTree()
+                ORDER BY (year, month, category)
+              "
+
+              echo "ClickHouse schema ready"

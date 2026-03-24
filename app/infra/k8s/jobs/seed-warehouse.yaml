@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-warehouse
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-clickhouse
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z clickhouse-svc 8123; do echo waiting for clickhouse; sleep 3; done
+      containers:
+        - name: seed
+          image: biagent/infra:latest       # built from app/infra/ Dockerfile
+          command: ["tsx", "src/clickhouse/seed-warehouse.ts"]
+          env:
+            - name: CLICKHOUSE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: CLICKHOUSE_HOST
+            - name: CLICKHOUSE_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: CLICKHOUSE_USER
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: CLICKHOUSE_PASSWORD
