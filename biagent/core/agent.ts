@@ -147,21 +147,38 @@ export class Agent {
   private async callLLM(
     model: string,
     messages: Anthropic.MessageParam[],
-    formattedTools: any[]
+    formattedTools: any[],
+    degraded = false
   ): Promise<Anthropic.Message> {
-    return this.client.messages.create({
+    const systemBlocks: Anthropic.TextBlockParam[] = [
+      { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+      ...(degraded ? [{ type: 'text' as const, text: '[DEGRADED_MODE] Primary model unavailable. Answer conservatively using available context. Avoid multi-step reasoning chains.' }] : []),
+    ];
+
+    const attempt = () => this.client.messages.create({
       model,
       max_tokens: 4096,
-      system: [
-        {
-          type: 'text',
-          text: SYSTEM_PROMPT,
-          cache_control: { type: 'ephemeral' }
-        }
-      ],
+      system: systemBlocks,
       messages,
       tools: formattedTools,
     });
+
+    try {
+      return await attempt();
+    } catch (firstErr: any) {
+      console.warn(`⚠️  [agent.ts:callLLM] ${model} failed (${firstErr?.message}), retrying in 500ms...`);
+      await new Promise(res => setTimeout(res, 500));
+      try {
+        return await attempt();
+      } catch (err) {
+        // Sonnet failed twice → fall back to Haiku in degraded mode
+        if (model === MODEL.Smart) {
+          console.warn(`⚠️  [agent.ts:callLLM] ${MODEL.Smart} unavailable, falling back to ${MODEL.Simple} (degraded mode)`);
+          return await this.callLLM(MODEL.Simple, messages, formattedTools, true);
+        }
+        throw err;
+      }
+    }
   }
 
   private initializeA2A(): Promise<void> {
