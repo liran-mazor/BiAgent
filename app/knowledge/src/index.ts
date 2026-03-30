@@ -1,6 +1,4 @@
 import 'dotenv/config';
-const missing = ['OPENAI_API_KEY', 'COHERE_API_KEY', 'POSTGRES_HOST', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB', 'KAFKA_BROKERS', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'S3_BUCKET_NAME'].filter(k => !process.env[k]);
-if (missing.length) { console.error(`❌  Missing env vars: ${missing.join(', ')}`); process.exit(1); }
 
 import { createApp } from './app.js';
 import { createConsumer } from './consumers/index.js';

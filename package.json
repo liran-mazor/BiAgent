@@ -32,7 +32,7 @@
     "outbox-worker": "tsx app/outbox-worker/src/index.ts",
     "demo:infra": "docker compose up -d",
     "demo:init": "tsx app/infra/local/init-demo.ts",
-    "demo": "concurrently --names \"knowledge,analytics\" --hide \"analytics\" -c \"green,blue\" \"npm run knowledge\" \"npm run analytics\"",
+    "demo": "concurrently --names \"knowledge,analytics\" -c \"green,blue\" \"npm run knowledge\" \"npm run analytics\"",
     "seed-warehouse": "tsx app/infra/local/clickhouse/seed-warehouse.ts"
   },
   "keywords": [],

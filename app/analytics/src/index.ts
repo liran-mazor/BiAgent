@@ -1,6 +1,4 @@
 import 'dotenv/config';
-const missing = ['CLICKHOUSE_HOST', 'CLICKHOUSE_USER', 'CLICKHOUSE_PASSWORD', 'KAFKA_BROKERS'].filter(k => !process.env[k]);
-if (missing.length) { console.error(`❌  Missing env vars: ${missing.join(', ')}`); process.exit(1); }
 
 import { createApp }      from './app.js';
 import { createConsumer } from './consumers/index.js';

@@ -4,9 +4,9 @@ let _ch: ReturnType<typeof createClient> | null = null;
 function getClient() {
   if (!_ch) _ch = createClient({
     url:      process.env.CLICKHOUSE_HOST     ?? 'http://localhost:8123',
-    database: process.env.CLICKHOUSE_DATABASE ?? 'default',
-    username: process.env.CLICKHOUSE_USER     ?? 'default',
-    password: process.env.CLICKHOUSE_PASSWORD ?? '',
+    database: process.env.CLICKHOUSE_DATABASE ?? 'biagent',
+    username: process.env.CLICKHOUSE_USER     ?? 'biagent',
+    password: process.env.CLICKHOUSE_PASSWORD ?? 'biagent123',
   });
   return _ch;
 }

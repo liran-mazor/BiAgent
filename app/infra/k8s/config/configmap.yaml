@@ -10,8 +10,8 @@ data:
   POSTGRES_USER: biagent
 
   # ClickHouse
-  CLICKHOUSE_HOST: clickhouse-svc
-  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_HOST: http://clickhouse-svc:8123
+  CLICKHOUSE_DATABASE: biagent
   CLICKHOUSE_USER: biagent
 
   # Kafka

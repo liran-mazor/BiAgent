@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS products (
 -- ── orders ───────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orders (
   id           INTEGER PRIMARY KEY,
-  customer_id  INTEGER NOT NULL REFERENCES customers(id),
+  customer_id  UUID NOT NULL REFERENCES customers(id),
   total_amount DECIMAL(10, 2) NOT NULL,
   placed_at    TIMESTAMPTZ NOT NULL
 );
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE TABLE IF NOT EXISTS reviews (
   id          INTEGER PRIMARY KEY,
   product_id  INTEGER NOT NULL REFERENCES products(id),
-  customer_id INTEGER NOT NULL REFERENCES customers(id),
+  customer_id UUID NOT NULL REFERENCES customers(id),
   rating      INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment     TEXT,
   created_at  TIMESTAMPTZ NOT NULL

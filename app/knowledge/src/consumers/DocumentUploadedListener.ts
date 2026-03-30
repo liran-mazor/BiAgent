@@ -3,6 +3,7 @@ import { Kafka, Producer } from 'kafkajs';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { KafkaListener, DocumentUploadedEvent, Topics } from '@biagent/common';
 import { ingestContent } from '../lib/ingester.js';
+import { parseDocument } from '../lib/parser.js';
 
 let _s3: S3Client | null = null;
 function getS3(): S3Client {
@@ -10,12 +11,12 @@ function getS3(): S3Client {
   return _s3;
 }
 
-async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
+async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  return Buffer.concat(chunks).toString('utf-8');
+  return Buffer.concat(chunks);
 }
 
 export class DocumentUploadedListener extends KafkaListener<DocumentUploadedEvent> {
@@ -26,6 +27,7 @@ export class DocumentUploadedListener extends KafkaListener<DocumentUploadedEven
   }
 
   async onMessage(data: DocumentUploadedEvent['data']): Promise<void> {
+    const filename = path.basename(data.s3Key);
     console.log(`[knowledge-agent] document.uploaded — s3Key: ${data.s3Key}`);
 
     const response = await getS3().send(new GetObjectCommand({
@@ -33,7 +35,8 @@ export class DocumentUploadedListener extends KafkaListener<DocumentUploadedEven
       Key: data.s3Key,
     }));
 
-    const text = await streamToString(response.Body as NodeJS.ReadableStream);
-    await ingestContent(data.s3Key, path.basename(data.s3Key), text);
+    const buffer = await streamToBuffer(response.Body as NodeJS.ReadableStream);
+    const text   = await parseDocument(buffer, filename);
+    await ingestContent(data.s3Key, filename, text);
   }
 }
