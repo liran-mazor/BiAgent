@@ -1,17 +1,17 @@
-import { Kafka, Producer } from 'kafkajs';
-import { KafkaListener, ProductCreatedEvent, Topics } from '@biagent/common';
+import { Kafka } from 'kafkajs';
+import { KafkaConsumer, ProductCreatedEvent, Topics } from '@biagent/common';
 import { ClickHouseClient } from '@clickhouse/client';
 import { BatchBuffer } from '../lib/batchBuffer.js';
 
 type ProductRow = { id: number; name: string; category: string; price: number; created_at: string };
 
-export class ProductCreatedListener extends KafkaListener<ProductCreatedEvent> {
+export class ProductCreatedConsumer extends KafkaConsumer<ProductCreatedEvent> {
   topic = Topics.ProductCreated as const;
 
   private buffer: BatchBuffer<ProductRow>;
 
-  constructor(kafka: Kafka, producer: Producer, private ch: ClickHouseClient, groupIdPrefix: string) {
-    super(kafka, producer, groupIdPrefix);
+  constructor(kafka: Kafka, private ch: ClickHouseClient) {
+    super(kafka);
     this.buffer = new BatchBuffer(
       items => ch.insert({ table: 'products', values: items, format: 'JSONEachRow' }),
     );

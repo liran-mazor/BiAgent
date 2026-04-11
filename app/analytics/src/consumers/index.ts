@@ -1,51 +1,34 @@
 import { Kafka } from 'kafkajs';
 import { createClient } from '@clickhouse/client';
-import { ProductCreatedListener }    from './ProductCreatedListener.js';
-import { OrderPlacedListener }       from './OrderPlacedListener.js';
-import { CustomerRegisteredListener } from './CustomerRegisteredListener.js';
-import { ReviewCreatedListener }     from './ReviewCreatedListener.js';
-
-const GROUP_PREFIX = process.env.KAFKA_GROUP_ID ?? 'analytics';
+import { ProductCreatedConsumer }     from './ProductCreatedConsumer.js';
+import { OrderPlacedConsumer }        from './OrderPlacedConsumer.js';
+import { CustomerRegisteredConsumer } from './CustomerRegisteredConsumer.js';
+import { ReviewCreatedConsumer }      from './ReviewCreatedConsumer.js';
+import { CLICKHOUSE_CONFIG } from '../config.js';
 
 export function createConsumer() {
   const kafka = new Kafka({
-    clientId: 'analytics',
-    brokers: (process.env.KAFKA_BROKERS ?? 'localhost:9092').split(','),
+    clientId: process.env.KAFKA_GROUP_ID,
+    brokers:  process.env.KAFKA_BROKERS!.split(','),
     logLevel: 0,
   });
+  const ch = createClient(CLICKHOUSE_CONFIG);
 
-  const ch = createClient({
-    url:      process.env.CLICKHOUSE_HOST     ?? 'http://localhost:8123',
-    database: process.env.CLICKHOUSE_DATABASE ?? 'biagent',
-    username: process.env.CLICKHOUSE_USER     ?? 'biagent',
-    password: process.env.CLICKHOUSE_PASSWORD ?? 'biagent123',
-  });
-
-  let producer:  ReturnType<typeof kafka.producer> | null = null;
-  let listeners: Array<{ disconnect(): Promise<void> }> = [];
+  const consumers = [
+    new ProductCreatedConsumer(kafka, ch),
+    new OrderPlacedConsumer(kafka, ch),
+    new CustomerRegisteredConsumer(kafka, ch),
+    new ReviewCreatedConsumer(kafka, ch),
+  ];
 
   return {
     async start(): Promise<void> {
-      producer = kafka.producer({ idempotent: true });
-      await producer.connect();
-
-      listeners = [
-        new ProductCreatedListener(kafka, producer, ch, GROUP_PREFIX),
-        new OrderPlacedListener(kafka, producer, ch, GROUP_PREFIX),
-        new CustomerRegisteredListener(kafka, producer, ch, GROUP_PREFIX),
-        new ReviewCreatedListener(kafka, producer, ch, GROUP_PREFIX),
-      ];
-
-      for (const listener of listeners) {
-        await (listener as any).listen();
-      }
-
+      for (const c of consumers) await c.listen();
       console.log('[analytics] consumers started');
     },
 
     async stop(): Promise<void> {
-      for (const listener of listeners) await listener.disconnect();
-      if (producer) await producer.disconnect();
+      for (const c of consumers) await c.disconnect();
       await ch.close();
     },
   };

@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: flagged-docs-report
+  namespace: default
+spec:
+  # Run every Monday at 9am
+  schedule: "0 9 * * 1"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: app-sa
+          containers:
+            - name: reporter
+              image: biagent/knowledge:latest
+              command: ["tsx", "src/scripts/report-flagged-docs.ts"]
+              env:
+                - name: POSTGRES_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: POSTGRES_HOST
+                - name: POSTGRES_USER
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: POSTGRES_USER
+                - name: POSTGRES_DB
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: POSTGRES_DB
+                - name: POSTGRES_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secret
+                      key: POSTGRES_PASSWORD
+                - name: SECURITY_EMAIL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: SECURITY_EMAIL
+                - name: SMTP_HOST
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: SMTP_HOST
+                - name: SMTP_PORT
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: SMTP_PORT
+                - name: SMTP_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secret
+                      key: SMTP_USER
+                - name: SMTP_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secret
+                      key: SMTP_PASSWORD
+                - name: SMTP_FROM
+                  valueFrom:
+                    configMapKeyRef:
+                      name: app-config
+                      key: SMTP_FROM
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 200m
+                  memory: 256Mi
+          restartPolicy: OnFailure
+          backoffLimit: 3

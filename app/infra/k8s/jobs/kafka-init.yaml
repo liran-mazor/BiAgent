@@ -1,0 +1,93 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-for-kafka
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z kafka-svc 9092; do echo waiting for kafka; sleep 3; done
+      containers:
+        - name: kafka-init
+          image: node:22-alpine
+          env:
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KAFKA_BROKERS
+            - name: KAFKA_REPLICATION_FACTOR
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: KAFKA_REPLICATION_FACTOR
+          command:
+            - sh
+            - -c
+            - |
+              npm install --prefix /tmp kafkajs --silent
+              node -e "
+              const { Kafka } = require('/tmp/node_modules/kafkajs');
+
+              const brokers = (process.env.KAFKA_BROKERS || 'kafka-svc:9092').split(',');
+              const rf = parseInt(process.env.KAFKA_REPLICATION_FACTOR || '1');
+
+              const topics = [
+                { topic: 'order.placed',              numPartitions: 3, retentionMs: 604800000   },
+                { topic: 'order.placed.retry',        numPartitions: 1, retentionMs: 259200000   },
+                { topic: 'order.placed.dlq',          numPartitions: 1, retentionMs: 2592000000  },
+                { topic: 'product.created',           numPartitions: 1, retentionMs: 604800000   },
+                { topic: 'product.created.retry',     numPartitions: 1, retentionMs: 259200000   },
+                { topic: 'product.created.dlq',       numPartitions: 1, retentionMs: 2592000000  },
+                { topic: 'customer.registered',       numPartitions: 2, retentionMs: 604800000   },
+                { topic: 'customer.registered.retry', numPartitions: 1, retentionMs: 259200000   },
+                { topic: 'customer.registered.dlq',   numPartitions: 1, retentionMs: 2592000000  },
+                { topic: 'document.uploaded',         numPartitions: 1, retentionMs: 604800000   },
+                { topic: 'document.uploaded.retry',   numPartitions: 1, retentionMs: 259200000   },
+                { topic: 'document.uploaded.dlq',     numPartitions: 1, retentionMs: 2592000000  },
+                { topic: 'review.created',            numPartitions: 2, retentionMs: 604800000   },
+                { topic: 'review.created.retry',      numPartitions: 1, retentionMs: 259200000   },
+                { topic: 'review.created.dlq',        numPartitions: 1, retentionMs: 2592000000  },
+              ];
+
+              async function main() {
+                const kafka = new Kafka({ clientId: 'kafka-init', brokers, logLevel: 0 });
+                const admin = kafka.admin();
+                await admin.connect();
+
+                let created = 0;
+                for (const cfg of topics) {
+                  try {
+                    const ok = await admin.createTopics({
+                      waitForLeaders: true,
+                      topics: [{
+                        topic: cfg.topic,
+                        numPartitions: cfg.numPartitions,
+                        replicationFactor: rf,
+                        configEntries: [{ name: 'retention.ms', value: String(cfg.retentionMs) }],
+                      }],
+                    });
+                    if (ok) { console.log('created:', cfg.topic); created++; }
+                    else     { console.log('exists: ', cfg.topic); }
+                  } catch (e) {
+                    if (e.message && e.message.includes('TOPIC_ALREADY_EXISTS')) {
+                      console.log('exists: ', cfg.topic);
+                    } else {
+                      throw e;
+                    }
+                  }
+                }
+
+                console.log(created + ' topics created, ' + (topics.length - created) + ' already existed');
+                await admin.disconnect();
+              }
+
+              main().catch(e => { console.error(e.message); process.exit(1); });
+              "

@@ -1,8 +1,8 @@
 // Kafka infrastructure
 export * from './kafka/topics';
 export * from './kafka/base-event';
-export * from './kafka/base-publisher';
-export * from './kafka/base-listener';
+export * from './kafka/base-producer';
+export * from './kafka/base-consumer';
 
 // Events (created-only — no updates or deletes)
 export * from './events/orders/order-placed-event';

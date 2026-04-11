@@ -23,7 +23,7 @@ spec:
         - name: analytics
           image: biagent/analytics:latest
           ports:
-            - containerPort: 3002
+            - containerPort: 3000
           env:
             - name: CLICKHOUSE_HOST
               valueFrom:
@@ -47,9 +47,8 @@ spec:
                   key: KAFKA_BROKERS
             - name: KAFKA_GROUP_ID
               valueFrom:
-                configMapKeyRef:
-                  name: app-config
-                  key: KAFKA_GROUP_ID
+                fieldRef:
+                  fieldPath: metadata.labels['app']
           resources:
             requests:
               cpu: 150m
@@ -60,13 +59,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /.well-known/agent.json
-              port: 3002
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
-              port: 3002
+              port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
@@ -80,5 +79,5 @@ spec:
   selector:
     app: analytics
   ports:
-    - port: 80
-      targetPort: 3002
+    - port: 3000
+      targetPort: 3000

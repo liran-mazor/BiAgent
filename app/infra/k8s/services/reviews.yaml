@@ -23,10 +23,10 @@ spec:
         - name: reviews
           image: biagent/reviews:latest
           ports:
-            - containerPort: 4004
+            - containerPort: 3000
           env:
             - name: PORT
-              value: "4004"
+              value: "3000"
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
@@ -62,13 +62,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 4004
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
-              port: 4004
+              port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
@@ -82,5 +82,5 @@ spec:
   selector:
     app: reviews
   ports:
-    - port: 80
-      targetPort: 4004
+    - port: 3000
+      targetPort: 3000

@@ -1,5 +1,5 @@
-import { Kafka, Producer } from 'kafkajs';
-import { KafkaListener, OrderPlacedEvent, Topics } from '@biagent/common';
+import { Kafka } from 'kafkajs';
+import { KafkaConsumer, OrderPlacedEvent, Topics } from '@biagent/common';
 import { ClickHouseClient } from '@clickhouse/client';
 import { BatchBuffer } from '../lib/batchBuffer.js';
 
@@ -8,14 +8,14 @@ type OrderItemRow = { order_id: number; product_id: number; quantity: number; pr
 
 const toDateTime = (iso: string) => new Date(iso).toISOString().replace('T', ' ').slice(0, 19);
 
-export class OrderPlacedListener extends KafkaListener<OrderPlacedEvent> {
+export class OrderPlacedConsumer extends KafkaConsumer<OrderPlacedEvent> {
   topic = Topics.OrderPlaced as const;
 
   private ordersBuffer:    BatchBuffer<OrderRow>;
   private orderItemsBuffer: BatchBuffer<OrderItemRow>;
 
-  constructor(kafka: Kafka, producer: Producer, private ch: ClickHouseClient, groupIdPrefix: string) {
-    super(kafka, producer, groupIdPrefix);
+  constructor(kafka: Kafka, private ch: ClickHouseClient) {
+    super(kafka);
     this.ordersBuffer = new BatchBuffer(
       items => ch.insert({ table: 'orders', values: items, format: 'JSONEachRow' }),
     );

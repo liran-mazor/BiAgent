@@ -9,45 +9,45 @@ import { KafkaEvent } from './base-event';
 const RETRY_DELAYS_MS = [5_000, 30_000, 60_000];
 
 /**
- * Base Kafka listener with full retry-topic + DLQ pattern.
+ * Base Kafka consumer with full retry-topic + DLQ pattern.
  *
  * Flow:
  *   main topic → onMessage() fails → publish to {topic}.retry (headers: retry-count, retry-at)
  *   retry topic → wait until retry-at, call onMessage() again
  *   after RETRY_DELAYS_MS.length failures → publish to {topic}.dlq
  *
- * groupId = groupIdPrefix + "." + topic so each listener gets its own independent
- * consumer group (e.g. "biagent-consumer.product.created").
- * groupIdPrefix is passed by the bootstrap (consumers/index.ts) — base-listener
- * has no knowledge of env vars.
+ * groupId = KAFKA_GROUP_ID + "." + topic, giving each consumer its own independent
+ * consumer group per service (e.g. "analytics.order.placed"). KAFKA_GROUP_ID is set
+ * per-service in K8s (analytics.yaml / knowledge.yaml).
  *
  * Subclass only needs to implement:
  *   topic    — which topic to consume
  *   onMessage(data) — business logic
  */
-export abstract class KafkaListener<T extends KafkaEvent> {
+export abstract class KafkaConsumer<T extends KafkaEvent> {
   abstract topic: T['topic'];
   abstract onMessage(data: T['data']): Promise<void>;
 
   private consumer!: Consumer;
+  private producer!: Producer;
 
-  private get groupId():    string { return `${this.groupIdPrefix}.${this.topic as string}`; }
+  private get groupId(): string { return `${process.env.KAFKA_GROUP_ID}.${this.topic as string}`; }
   private get retryTopic(): string { return `${this.topic}.retry`; }
   private get dlqTopic():   string { return `${this.topic}.dlq`; }
 
-  constructor(
-    private kafka: Kafka,
-    private producer: Producer,
-    private groupIdPrefix: string,
-  ) {}
+  constructor(private kafka: Kafka) {}
 
   async listen(): Promise<void> {
+    // Producer for retry/DLQ routing — owned here, not shared with callers
+    this.producer = this.kafka.producer({ idempotent: true });
+    await this.producer.connect();
+
     // Consumer created here so this.topic (set by subclass field) is available
     this.consumer = this.kafka.consumer({ groupId: this.groupId });
     await this.consumer.connect();
     await this.consumer.subscribe({
       topics: [this.topic as string, this.retryTopic],
-      fromBeginning: true,
+      fromBeginning: false,
     });
 
     await this.consumer.run({
@@ -95,7 +95,7 @@ export abstract class KafkaListener<T extends KafkaEvent> {
         }],
       });
 
-      console.warn(`[listener] ${this.topic} → retry ${retryCount + 1}/${RETRY_DELAYS_MS.length} in ${delayMs}ms`);
+      console.warn(`[consumer] ${this.topic} → retry ${retryCount + 1}/${RETRY_DELAYS_MS.length} in ${delayMs}ms`);
     } else {
       await this.producer.send({
         topic: this.dlqTopic,
@@ -110,11 +110,12 @@ export abstract class KafkaListener<T extends KafkaEvent> {
         }],
       });
 
-      console.error(`[listener] ${this.topic} → DLQ after ${retryCount} retries`);
+      console.error(`[consumer] ${this.topic} → DLQ after ${retryCount} retries`);
     }
   }
 
   async disconnect(): Promise<void> {
     await this.consumer.disconnect();
+    await this.producer.disconnect();
   }
 }

@@ -1,6 +1,6 @@
 import path from 'path';
 import { createRequire } from 'module';
-import Tesseract from 'tesseract.js';
+import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 const require  = createRequire(import.meta.url);
@@ -11,45 +11,59 @@ const pdfParse = require('pdf-parse') as (buf: Buffer) => Promise<{ text: string
 const LARGE_PDF_BYTES  = 10 * 1024 * 1024; // 10 MB
 const MIN_TEXT_THRESHOLD = 100;             // chars — below this we assume scanned
 
+let worker: Worker | null = null;
+
+export async function initParser() {
+  if (!worker) {
+    worker = await createWorker('eng');
+  }
+}
+
+export async function terminateParser() {
+  if (worker) {
+    await worker.terminate();
+    worker = null;
+  }
+}
+
+async function performOCR(buffer: Buffer): Promise<string> {
+  await initParser();
+  const { data } = await worker!.recognize(buffer);
+  return data.text;
+}
+
 async function parseLargePdf(buffer: Buffer): Promise<string> {
   const data = new Uint8Array(buffer);
-  const doc  = await pdfjsLib.getDocument({ data }).promise;
+  const loadingTask = pdfjsLib.getDocument({ 
+    data,
+    useSystemFonts: true,
+    disableFontFace: true 
+  });
+  const doc = await loadingTask.promise;
 
-  const pages: string[] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page    = await doc.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map(item => 'str' in item ? item.str : '')
-      .join(' ');
-    pages.push(pageText);
+  try {
+    const pagesText: string[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const pageString = content.items
+        .map(item => ('str' in item ? item.str : ''))
+        .join(' ');
+      pagesText.push(pageString);
+    }
+
+    const fullText = pagesText.join('\n');
+    
+    return fullText.trim().length >= MIN_TEXT_THRESHOLD ? fullText : await performOCR(buffer);
+  } finally {
+    await doc.destroy();
   }
-
-  const text = pages.join('\n');
-
-  if (text.trim().length >= MIN_TEXT_THRESHOLD) {
-    return text;
-  }
-
-  console.log('[parser] pdfjs-dist returned little text — falling back to Tesseract OCR');
-  const { data: ocr } = await Tesseract.recognize(buffer, 'eng');
-  return ocr.text;
 }
 
 async function parseSmallPdf(buffer: Buffer): Promise<string> {
   const { text } = await pdfParse(buffer);
 
-  if (text.trim().length >= MIN_TEXT_THRESHOLD) {
-    return text;
-  }
-
-  console.log('[parser] pdf-parse returned little text — falling back to Tesseract OCR');
-  const { data } = await Tesseract.recognize(buffer, 'eng');
-  return data.text;
-}
-
-function parseTxt(buffer: Buffer): string {
-  return buffer.toString('utf-8');
+  return text.trim().length >= MIN_TEXT_THRESHOLD ? text : performOCR(buffer);
 }
 
 export async function parseDocument(buffer: Buffer, filename: string): Promise<string> {
@@ -60,9 +74,8 @@ export async function parseDocument(buffer: Buffer, filename: string): Promise<s
       return buffer.length >= LARGE_PDF_BYTES
         ? parseLargePdf(buffer)
         : parseSmallPdf(buffer);
-    case '.txt':
     case '.md':
-      return parseTxt(buffer);
+      return buffer.toString('utf-8');
     default:
       throw new Error(`Unsupported file type: ${ext}`);
   }

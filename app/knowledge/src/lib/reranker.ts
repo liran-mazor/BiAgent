@@ -27,6 +27,11 @@ export async function rerank(
 ): Promise<RetrievedChunk[]> {
   if (chunks.length === 0) return [];
 
+  // Skip reranking if < 6 candidates: no value in Cohere cross-encoder for few chunks.
+  if (chunks.length < 6) {
+    return chunks;
+  }
+
   // Cohere receives the raw text of each candidate.
   // It reads question + passage together and outputs a relevance score per passage.
   const response = await getCohere().rerank({

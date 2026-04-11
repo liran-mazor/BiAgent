@@ -1,7 +1,14 @@
 import { Kafka, Producer } from 'kafkajs';
 import { KafkaEvent } from './base-event';
 
-export interface PublisherConfig {
+const RETRIES = 5;
+const INITIAL_RETRY_TIME = 300;
+const MAX_RETRY_TIME = 30_000;
+const FACTOR = 0.2;
+const MULTIPLIER = 2;
+
+
+export interface ProducerConfig {
   /**
    * How many times to retry a failed send before giving up.
    * Covers transient broker errors: leader elections, not-enough-replicas, timeouts.
@@ -23,7 +30,7 @@ export interface PublisherConfig {
 }
 
 /**
- * Base Kafka publisher.
+ * Base Kafka producer.
  *
  * Takes a Kafka instance and creates its own idempotent producer, so retry
  * policy is configured once here rather than scattered across services.
@@ -33,23 +40,23 @@ export interface PublisherConfig {
  *   - Forces maxInFlightRequests=1
  *   - Prevents duplicate messages on retry (sequence numbers + producer epoch)
  *
- * One publisher instance per topic — create them in your service entry point
+ * One producer instance per topic — create them in your service entry point
  * alongside connect(), and disconnect() on graceful shutdown.
  */
-export abstract class KafkaPublisher<T extends KafkaEvent> {
+export abstract class KafkaProducer<T extends KafkaEvent> {
   abstract topic: T['topic'];
 
   private producer: Producer;
 
-  constructor(kafka: Kafka, config: PublisherConfig = {}) {
+  constructor(kafka: Kafka, config: ProducerConfig = {}) {
     this.producer = kafka.producer({
-      idempotent: true,          // acks=-1 + maxInFlightRequests=1 enforced automatically
+      idempotent: true,     // acks=-1 + exactly-once delivery per partition (up to 5 in-flight)
       retry: {
-        retries:         config.retries         ?? 5,
-        initialRetryTime: config.initialRetryTime ?? 300,
-        maxRetryTime:    config.maxRetryTime    ?? 30_000,
-        factor:      0.2,
-        multiplier:  2,
+        retries:         config.retries         ?? RETRIES,
+        initialRetryTime: config.initialRetryTime ?? INITIAL_RETRY_TIME,
+        maxRetryTime:    config.maxRetryTime    ?? MAX_RETRY_TIME,
+        factor:       FACTOR,
+        multiplier:   MULTIPLIER,
       },
     });
   }
@@ -67,6 +74,6 @@ export abstract class KafkaPublisher<T extends KafkaEvent> {
       topic: this.topic,
       messages: [{ value: JSON.stringify(data) }],
     });
-    console.log(`[publisher] ${this.topic} published`);
+    console.log(`[producer] ${this.topic} published`);
   }
 }

@@ -1,13 +1,9 @@
 import { createClient } from '@clickhouse/client';
+import { CLICKHOUSE_CONFIG } from '../config.js';
 
 let _ch: ReturnType<typeof createClient> | null = null;
 function getClient() {
-  if (!_ch) _ch = createClient({
-    url:      process.env.CLICKHOUSE_HOST     ?? 'http://localhost:8123',
-    database: process.env.CLICKHOUSE_DATABASE ?? 'biagent',
-    username: process.env.CLICKHOUSE_USER     ?? 'biagent',
-    password: process.env.CLICKHOUSE_PASSWORD ?? 'biagent123',
-  });
+  if (!_ch) _ch = createClient(CLICKHOUSE_CONFIG);
   return _ch;
 }
 

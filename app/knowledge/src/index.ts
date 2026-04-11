@@ -2,6 +2,7 @@ import 'dotenv/config';
 
 import { createApp } from './app.js';
 import { createConsumer } from './consumers/index.js';
+import { initParser } from './lib/parser.js';
 
 const PORT = parseInt(process.env.KNOWLEDGE_AGENT_PORT ?? '3001');
 
@@ -12,6 +13,7 @@ const server = app.listen(PORT, () => console.log(`knowledge-agent running on po
 
 async function start(): Promise<void> {
   try {
+    await initParser();
     await consumer.start();
   } catch {
   }

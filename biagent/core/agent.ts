@@ -90,10 +90,10 @@ export class Agent {
     messages.push({ role: 'assistant', content: response.content });
     messages.push({
       role: 'user',
-      content: toolResults.map(({ tool_use_id, result }) => ({
+      content: toolResults.map(({ tool_use_id, toolName, result }) => ({
         type: 'tool_result' as const,
         tool_use_id,
-        content: JSON.stringify(result),
+        content: `<tool_output tool="${toolName}">\n${JSON.stringify(result)}\n</tool_output>`,
       })),
     });
 
@@ -134,10 +134,10 @@ export class Agent {
       messages.push({ role: 'assistant', content: response.content });
       messages.push({
         role: 'user',
-        content: toolResults.map(({ tool_use_id, result }) => ({
+        content: toolResults.map(({ tool_use_id, toolName, result }) => ({
           type: 'tool_result' as const,
           tool_use_id,
-          content: JSON.stringify(result),
+          content: `<tool_output tool="${toolName}">\n${JSON.stringify(result)}\n</tool_output>`,
         })),
       });
     }
@@ -261,7 +261,7 @@ export class Agent {
     return messages;
   }
 
-  private async executeTool(toolUseBlock: Anthropic.ToolUseBlock): Promise<{ tool_use_id: string; result: any }> {
+  private async executeTool(toolUseBlock: Anthropic.ToolUseBlock): Promise<{ tool_use_id: string; toolName: string; result: any }> {
 
     // Native tool — in-process
     const nativeTool = getToolByName(toolUseBlock.name);
@@ -269,7 +269,7 @@ export class Agent {
       const result = await nativeTool.execute(toolUseBlock.input as any);
       if (result?.data?.chartUrl) this.lastChartUrl = result.data.chartUrl;
       if (!result.success) console.log(`    ERROR        : ${toolUseBlock.name}  ${result.error}`);
-      return { tool_use_id: toolUseBlock.id, result };
+      return { tool_use_id: toolUseBlock.id, toolName: toolUseBlock.name, result };
     }
 
     // A2A tool — HTTP via circuit breaker, envelope unwrapped
@@ -283,14 +283,14 @@ export class Agent {
         const envelope = await breaker.fire(toolUseBlock.input) as any;
         if (envelope?.status === 'failed') {
           const { status: _, ...failureDetails } = envelope;
-          return { tool_use_id: toolUseBlock.id, result: failureDetails };
+          return { tool_use_id: toolUseBlock.id, toolName: toolUseBlock.name, result: failureDetails };
         }
         const result = envelope?.data ?? envelope;
         if (result?.chartUrl) this.lastChartUrl = result.chartUrl;
-        return { tool_use_id: toolUseBlock.id, result };
+        return { tool_use_id: toolUseBlock.id, toolName: toolUseBlock.name, result };
       } catch (error: any) {
         console.log(`    ❌  ${toolUseBlock.name}  ${error.message}`);
-        return { tool_use_id: toolUseBlock.id, result: { success: false, error: error.message } };
+        return { tool_use_id: toolUseBlock.id, toolName: toolUseBlock.name, result: { success: false, error: error.message } };
       }
     }
 

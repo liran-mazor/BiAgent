@@ -23,7 +23,7 @@ spec:
         - name: knowledge-agent
           image: biagent/knowledge:latest
           ports:
-            - containerPort: 3001
+            - containerPort: 3000
           env:
             - name: POSTGRES_HOST
               valueFrom:
@@ -50,6 +50,10 @@ spec:
                 configMapKeyRef:
                   name: app-config
                   key: KAFKA_BROKERS
+            - name: KAFKA_GROUP_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['app']
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -95,13 +99,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /.well-known/agent.json
-              port: 3001
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
-              port: 3001
+              port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
@@ -115,5 +119,5 @@ spec:
   selector:
     app: knowledge-agent
   ports:
-    - port: 80
-      targetPort: 3001
+    - port: 3000
+      targetPort: 3000

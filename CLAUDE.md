@@ -56,11 +56,20 @@ BiAgent is a ReAct-pattern autonomous agent built from scratch (no LangChain/Lan
 | `email` | Native | SMTP via nodemailer |
 | `web_search` | Native | Tavily search API |
 
-### Prompt Caching (3/4 slots used)
-- Slot 1: System prompt (`cache_control: ephemeral` on system content block)
-- Slot 2: Tool definitions (cache boundary on last tool in array)
-- Slot 3: Conversation history (`markHistoryCacheBoundary()` marks last message before new push)
-- Slot 4: Reserved (semantic cache — Phase 3)
+### RAG Pipeline Constants (Industry Standard)
+| Phase | Constant | Value | Rationale |
+|-------|----------|-------|-----------|
+| **Retrieve** | `TOP_K` | 20 | Over-fetch for recall (bi-encoder imprecision); filter post-retrieval |
+| **Filter** | `SIMILARITY_THRESHOLD` | 0.75 | Cosine >0.75 = "relevantish"; removes obvious noise before reranking |
+| **Rerank** | `TOP_N` | 5 | Cohere cross-encoder → 5 chunks for synthesis (industry standard) |
+| **Skip reranker** | if `<6 candidates` | — | No value in reranking few chunks; saves Cohere API cost |
+| **Synthesis** | `SYNTHESIS_MODEL` | gpt-4o-mini | Grounding layer (mandatory for quality + injection filter) |
+
+**Applied Rules:**
+- Always retrieve full `TOP_K=20`, then filter by similarity threshold post-retrieval
+- If remaining candidates `< 6`, skip Cohere rerank and take top-5 directly
+- Reranker only processes high-confidence candidates (threshold-filtered)
+- Synthesis always receives sorted chunks (by `chunk_index`, not relevance) for document reading order
 
 ### Query Router
 `biagent/services/router.ts` sends the query + open circuit breakers to Haiku via forced tool use (`route_query`). Returns a discriminated union (`RouteResult`):
@@ -74,9 +83,6 @@ Token count tracked per-conversation. Triggers structured summarization at 170k 
 `biagent/utils/circuitBreaker.ts` — opossum-based registry keyed by tool name. Applied to A2A tools only (native tools are in-process). A2A: 30s timeout, 50% error threshold, 10s reset.
 
 The circuit breaker is **closed-loop**: a module-level `openCircuits: Set<string>` is updated on every `open`/`close` event. `getOpenCircuits()` is called once per `run()` and passed to both `routeQuery()` (for availability routing) and `createUserPrompt()` (for ReAct loop warnings).
-
-### Chart URL Propagation
-After a `chart` native call, `executeTool()` captures `result.data.chartUrl` into `agent.lastChartUrl`. Interfaces call `agent.getLastChartUrl()` / `agent.clearLastChartUrl()` after each query to send the chart image (Telegram) or push it to the RPi face (Alfred).
 
 ### LangSmith Observability
 Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOpenAI`) in `biagent/config/clients.ts`. Zero agent code changes needed — all LLM calls traced automatically.
@@ -104,10 +110,10 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | `app/infra/k8s/ingress/` | Kong plugins (JWT + rate limiting) + Ingress routing rules |
 | `app/analytics/src/lib/executor.ts` | Executes SELECT queries against ClickHouse |
 | `app/analytics/src/lib/batchBuffer.ts` | Generic buffer — flushes to ClickHouse on count (100) or timer (5s) |
-| `app/analytics/src/consumers/` | 4 KafkaListener subclasses writing to ClickHouse via BatchBuffer |
+| `app/analytics/src/consumers/` | 4 KafkaConsumer subclasses writing to ClickHouse via BatchBuffer |
 | `app/knowledge/src/index.ts` | A2A server — Agent Card + `/tasks` handler + graceful shutdown |
-| `app/knowledge/src/consumers/index.ts` | Kafka consumer lifecycle — DocumentUploadedListener wiring |
-| `app/knowledge/src/consumers/DocumentUploadedListener.ts` | `document.uploaded` → S3 download → ingest pipeline |
+| `app/knowledge/src/consumers/index.ts` | Kafka consumer lifecycle — DocumentUploadedConsumer wiring |
+| `app/knowledge/src/consumers/DocumentUploadedConsumer.ts` | `document.uploaded` → S3 download → ingest pipeline |
 | `app/knowledge/src/lib/chunker.ts` | Pure chunking logic — recursive split + overlap |
 | `app/knowledge/src/lib/retriever.ts` | Embed query → pgvector cosine search; filters passed in by caller (no inference) |
 | `app/knowledge/src/lib/reranker.ts` | Cohere cross-encoder reranking |
@@ -125,7 +131,6 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 **Key details:**
 - Wake word model: `biagent/alfred/audio/alfred.ppn` (custom-trained Picovoice)
 - Pre-generated audio: `confirmation.mp3` ("All ears"), `ack.mp3` ("On it")
-- RPi timing: 950ms delays on mouth animations; 400ms after recorder stop before confirmation plays
 - Cancel: saying "stop" after wake word → `continue` back to listening loop
 - Voice: `en-GB-Neural2-B` (British male, Google Cloud TTS)
 
@@ -135,23 +140,23 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 - `biagent/interfaces/telegramBot.ts` — Telegram bot (text + voice)
 - `biagent/interfaces/alfred.ts` — Alfred wake word loop + chart display
 
-### Project Description
-BiAgent is a BI agent with a Haiku router (FUNCTION_CALL/REACT patterns) + two A2A agents: knowledge-agent (RAG pipeline — pgvector + Cohere rerank + gpt-4o-mini) and analytics (Kafka consumers → ClickHouse batch writes + SQL query endpoint). BiAgent holds no database credentials — all warehouse queries go through the analytics A2A agent. In production (K8s), Kong handles ingress, JWT auth, and rate limiting.
-
 ### Pitch Presentation
 `pitch/biagent-presentation.html` — standalone 3-slide reveal-style HTML. No build step; open directly in a browser.
 
 **Navigation:** Enter / Space / ArrowRight advance steps within a slide. Click also advances.
 
-**Aesthetic — "old money" dark mode:**
-- Background: `#1c1812`, cream: `#e8dfc8`, parchment: `#c4b89a`, green: `#3d6456`, gold: `#b8a07a`, dim: `#4a4035`
-- Grain texture overlay (SVG noise filter), corner bracket ornaments
-- Title: Cormorant Garamond (thin, spaced, uppercase) / Body: Libre Baskerville / Mono: DM Mono
+**Slides:** title + flow diagram → two-agent architecture → RAG pipeline (index vs query time).
 
-**Slide status:**
-- Slide 1 — title, tagline, compound example query, flow diagram
-- Slide 2 — two-agent architecture: BiAgent internals + A2A → knowledge-agent
-- Slide 3 — RAG pipeline: index time (left) vs query time (right)
+## Working Guidelines
+
+- If you don't know something, say so — don't guess or hallucinate file paths, APIs, or behavior.
+- Read files before editing them. Never modify code you haven't read.
+- Make only the changes requested. Don't refactor surrounding code, add comments, or "improve" adjacent things unless asked.
+- Prefer editing existing files over creating new ones.
+- Don't add error handling, validation, or fallbacks for scenarios that can't happen in this codebase.
+- Before making large structural changes (renaming, moving files, changing interfaces), confirm with the user first.
+- Never commit, push, or run destructive git commands unless explicitly asked.
+- ALLWAYS ANSWER SHORT AND IN HIGH LEVEL UNLESS I ASK YOU TO "DEEP DIVE" , "EXPLAIN".
 
 ## Environment Variables Required
 ```

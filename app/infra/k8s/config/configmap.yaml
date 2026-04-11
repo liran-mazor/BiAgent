@@ -16,7 +16,7 @@ data:
 
   # Kafka
   KAFKA_BROKERS: kafka-svc:9092
-  KAFKA_GROUP_ID: biagent
+  KAFKA_REPLICATION_FACTOR: "1"   # override to "3" in production with 3-broker setup
 
   # Internal service URLs — port 80 (cluster-internal DNS, no port suffix needed)
   KNOWLEDGE_URL: http://knowledge-svc

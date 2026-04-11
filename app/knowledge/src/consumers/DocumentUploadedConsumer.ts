@@ -1,7 +1,7 @@
 import path from 'path';
-import { Kafka, Producer } from 'kafkajs';
+import { Kafka } from 'kafkajs';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { KafkaListener, DocumentUploadedEvent, Topics } from '@biagent/common';
+import { KafkaConsumer, DocumentUploadedEvent, Topics } from '@biagent/common';
 import { ingestContent } from '../lib/ingester.js';
 import { parseDocument } from '../lib/parser.js';
 
@@ -19,11 +19,11 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-export class DocumentUploadedListener extends KafkaListener<DocumentUploadedEvent> {
+export class DocumentUploadedConsumer extends KafkaConsumer<DocumentUploadedEvent> {
   topic = Topics.DocumentUploaded as const;
 
-  constructor(kafka: Kafka, producer: Producer, groupIdPrefix: string) {
-    super(kafka, producer, groupIdPrefix);
+  constructor(kafka: Kafka) {
+    super(kafka);
   }
 
   async onMessage(data: DocumentUploadedEvent['data']): Promise<void> {

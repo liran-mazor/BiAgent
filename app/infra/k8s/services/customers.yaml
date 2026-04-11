@@ -23,10 +23,10 @@ spec:
         - name: customers
           image: biagent/customers:latest
           ports:
-            - containerPort: 4003
+            - containerPort: 3000
           env:
             - name: PORT
-              value: "4003"
+              value: "3000"
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
@@ -67,13 +67,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /health
-              port: 4003
+              port: 3000
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
-              port: 4003
+              port: 3000
             initialDelaySeconds: 15
             periodSeconds: 10
             failureThreshold: 3
@@ -87,5 +87,5 @@ spec:
   selector:
     app: customers
   ports:
-    - port: 80
-      targetPort: 4003
+    - port: 3000
+      targetPort: 3000

@@ -2,6 +2,7 @@ import express from 'express';
 import { retrieve } from './lib/retriever.js';
 import { rerank } from './lib/reranker.js';
 import { synthesize } from './lib/synthesizer.js';
+import { DOC_TYPES, VALID_YEARS } from './config.js';
 
 export function createApp() {
   const app = express();
@@ -33,12 +34,12 @@ export function createApp() {
                 },
                 doc_type: {
                   type: 'string',
-                  enum: ['policy', 'board_meeting', 'performance_review'],
+                  enum: DOC_TYPES,
                   description: 'Optional. Narrow the search to a specific document type.',
                 },
                 year: {
                   type: 'integer',
-                  enum: [2023, 2024, 2025, 2026],
+                  enum: VALID_YEARS,
                   description: 'Optional. Narrow the search to a specific year.',
                 },
               },
@@ -102,6 +103,7 @@ async function runPipeline(question: string, doc_type?: string, year?: number) {
 
   const result = await synthesize(question, reranked);
   console.log(`      sources  : ${result.sources.join(', ')}`);
+  console.log(`      result   : ${result.answer}`);
 
   return result;
 }
