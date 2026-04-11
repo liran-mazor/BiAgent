@@ -8,6 +8,7 @@ import { Pool } from 'pg';
 import { EMBEDDING_MODEL, DB_CONFIG } from '../config.js';
 
 const TOP_K = 20; // candidates before reranking
+const SIMILARITY_THRESHOLD = 0.5; // filter cosine similarity post-retrieval
 
 // Lazy — instantiated on first call so dotenv has already run by then.
 let _openai: OpenAI | null = null;
@@ -65,6 +66,7 @@ export async function retrieve(
      FROM rag_documents
      WHERE ($2::text IS NULL OR doc_type = $2)
        AND ($3::int  IS NULL OR year     = $3)
+       AND (flagged = false OR (flagged = true AND approved_at IS NOT NULL))
      ORDER BY embedding <=> $1::vector
      LIMIT $4`,
     [
@@ -75,5 +77,7 @@ export async function retrieve(
     ],
   );
 
-  return rows;
+  // Filter by similarity threshold to remove low-confidence candidates
+  // before passing to reranker (saves Cohere API cost)
+  return rows.filter(c => c.similarity > SIMILARITY_THRESHOLD);
 }

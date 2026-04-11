@@ -4,7 +4,7 @@
   "main": "index.js",
   "workspaces": [
     "app/common",
-    "app/infra",
+    "app/infra/local",
     "app/analytics",
     "app/orders",
     "app/catalog",
