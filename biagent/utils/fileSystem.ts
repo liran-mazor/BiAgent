@@ -3,8 +3,8 @@ import fs from "node:fs";
 import https from "node:https";
 
 export const initializeTempDirectory = () => {
-  const alfredTemp = path.join(process.cwd(), 'src/temp/alfred');
-  const telegramTemp = path.join(process.cwd(), 'src/temp/telegram');
+  const alfredTemp = path.join(process.cwd(), 'biagent/temp/alfred');
+  const telegramTemp = path.join(process.cwd(), 'biagent/temp/telegram');
 
   [alfredTemp, telegramTemp].forEach(dir => {
     if (!fs.existsSync(dir)) {

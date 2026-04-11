@@ -4,9 +4,9 @@ validateEnv();
 import { Agent } from '../core/agent';
 import { Porcupine } from '@picovoice/porcupine-node';
 import { PvRecorder } from '@picovoice/pvrecorder-node';
-import { AUDIO_PATHS } from '../alfred/audioPaths';
-import { playSound, transcribeAudio, recordUserQuery, isCancelCommand, prepareSpeech, /*recordAndTranscribe*/ } from '../alfred/voiceService';
-import { sendState, sendSpeaking, sendListening, sendProcessing, sendChart } from '../alfred/faceService';
+import { AUDIO_PATHS } from './alfred/audioPaths';
+import { playSound, transcribeAudio, recordUserQuery, isCancelCommand, prepareSpeech, /*recordAndTranscribe*/ } from './alfred/voiceService';
+import { sendState, sendSpeaking, sendListening, sendProcessing, sendChart } from './alfred/faceService';
 import { initializeTempDirectory } from '../utils/fileSystem';
 
 const WAKE_WORD_SENSITIVITY = 0.8;

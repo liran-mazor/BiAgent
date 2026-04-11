@@ -1,145 +1,62 @@
 # BiAgent - Autonomous Business Intelligence Agent
 
-> **⚠️ Demo project** for agentic AI engineering interviews. Built from scratch — no LangChain, no frameworks.
+> **Demo project** for agentic AI engineering interviews. Built from scratch — no LangChain/LangGraph frameworks.
 
-An AI agent that autonomously answers business questions by reasoning through problems and selecting the right tools — using the ReAct (Reasoning + Acting) pattern.
+An AI agent that autonomously answers business questions through reasoning and tool selection using the ReAct pattern.
 
 ## Tech Stack
 
-**Core:** Node.js · TypeScript · Claude Sonnet 4 + Haiku 4.5 · PostgreSQL + pgvector  
-**Protocols:** Model Context Protocol · Agent-to-Agent Protocol
-**Voice:** Picovoice Porcupine · Deepgram STT · Google Cloud TTS  
-**Infra:** Docker · AWS S3 · LangSmith · Telegram Bot API
+**Core:** Node.js · TypeScript · Claude Sonnet 4.6 + Haiku 4.5 · PostgreSQL + pgvector
+**Data:** Kafka · ClickHouse · Event Sourcing with Outbox Pattern
+**Protocols:** Agent-to-Agent (A2A) · JWT Auth via Kong
+**Voice:** Picovoice Porcupine · Deepgram STT · Google Cloud TTS
+**Infra:** Docker · Kubernetes · AWS S3 · LangSmith
 
 ---
 
-## Six Engineering Phases
+## Architecture
 
-**Phase 1 — Performance:** Semantic caching (pgvector + embeddings) and parallel tool execution.
-
-**Phase 2 — MCP Integration:** Standalone MCP server exposes SQL tool via STDIO. Agent acts as MCP client with dynamic tool discovery at startup.
-
-**Phase 3 — Router:** Haiku routes queries to itself (simple) or Sonnet (complex).
-
-**Phase 4 — A2A Multi-Agent Architecture:** Standalone ForecastAgent with Agent Card. BiAgent discovers and registers tools dynamically — zero hardcoding. Three-tier tool resolution: Native → MCP (STDIO) → A2A (HTTP).
-
-**Phase 5 — Context Engineering + Prompt Caching:** Multi-layer prompt caching (3/4 slots). Token-aware history summarization. Circuit breaker with opossum for MCP/A2A resilience.
-
-**Phase 6 — Observability:** LangSmith tracing wrapped at the client level — zero agent code changes. Daily anomaly detection where Haiku analyzes traces and emails the team. Containerized as a Docker cron job.
-
----
-
-## Tools (4 Native + 1 MCP + 1 A2A)
-
-| Tool | Type | Description |
-|------|------|-------------|
-| `query_database` | MCP (STDIO) | PostgreSQL queries via standalone MCP server |
-| `forecast_revenue` | A2A (HTTP) | Revenue forecasting via standalone ForecastAgent |
-| `chart` | Native | Chart.js visualization + AWS S3 upload |
-| `web_search` | Native | Tavily API for benchmarks and market data |
-| `email` | Native | Nodemailer with role resolution (team_leader, vp) |
-| `calculator` | Native | Math.js for growth rates and statistics |
-
----
-
-## 4 Interfaces
-
-- **CLI** — `npm start "query"`
-- **Interactive CLI** — `npm run interactive`
-- **Telegram Bot** — text + voice messages: `npm run bot`
-- **Alfred** — wake word voice assistant: `npm run voice`
-
-Alfred uses Picovoice for wake word detection, Deepgram for streaming STT with automatic voice activity detection, and Google Cloud TTS for British-voiced responses.
-
----
-
-## System Architecture
+**Orchestrator + 2 A2A Agents:**
 
 ```
-   ┌───────────────────────────────────────────────┐
-   │               User Interfaces                 │
-   ├─────────────────┬─────────────────────────────┤
-   │  CLI Terminal   │  Telegram Bot (Voice/Text)  │
-   └──────┬──────────┴───────────────────┬─────────┘
-          │                              │
-       Text Query                   Voice ──► OpenAI Whisper
-          │                              │
-          └───────────────┬──────────────┘
-                          ▼
-              ◆───────────────────────◆
-              │    Semantic Cache     │ 
-              │ pgvector + embeddings │
-              ◆───────────┬───────────◆
-                          │
-                      ┌───┴───┐
-                      │       │
-                     Hit     Miss
-                      │       │
-                   Return     │
-                              ▼
-          ┌────────────────────────────┐
-          │    Router (Haiku 3.5)      │  
-          │  Analyzes query complexity │
-          └──────────────┬─────────────┘
-                         │
-                ┌────────┴────────┐
-                ▼                 ▼
-          ┌───────────┐     ┌───────────┐
-          │ Haiku 3.5 │     │ Sonnet 4  │
-          │  (Simple) │     │ (Complex) │
-          └─────┬─────┘     └─────┬─────┘
-                │                 │
-                └────────┬────────┘
-                         ▼
-         ┌─────────────────────────────────┐
-         │      BiAgent - ReAct Core       │
-         │ • Conversation Memory           │
-         │ • Prompt Caching (3/4 slots)    │
-         │ • Parallel Tool Execution       │
-         │ • Token-based Summarization     │
-         └─────────────────────────────────┘
-                         │
-       ┌─────────────────┼──────────────────┐
-       │                 │                  │
-       ▼                 ▼                  ▼                 
-  ┌──────────┐      ┌──────────┐       ┌──────────────┐ 
-  │ MCP Tool │      │ A2A tool │       │ Native Tools │ 
-  └─────┬────┘      └────┬─────┘       └──────┬───────┘ 
-        │                │                    │      
-      STDIO             HTTP              In-process
-        │                │                    │             
-        ▼                ▼                    ▼             
-┌───────────────┐ ┌────────────────┐ ┌─────────────────┐
-│   MCP Server  │ │ ForecastAgent  │ │ • Chart.js + S3 │
-│query_database │ │forecast_revenue│ │ • Web Search    │
-│       +       │ └────────────────┘ │ • Email         │
-│  PostgreSQL   │                    │ • Calculator    │
-└───────────────┘                    └─────────────────┘
+┌──────────────────────────────────────────┐
+│          BiAgent Orchestrator            │
+│  • Router (Haiku) — pattern + availability │
+│  • FUNCTION_CALL (Haiku) or REACT (Sonnet) │
+│  • Prompt caching (3/4 slots)            │
+│  • Circuit breaker → immediate exit      │
+└──────────────────────────────────────────┘
+          │                    │
+          ▼                    ▼
+    ┌──────────────┐    ┌──────────────┐
+    │ Knowledge    │    │ Analytics    │
+    │ Agent        │    │ Agent        │
+    │ (pgvector)   │    │ (ClickHouse) │
+    └──────────────┘    └──────────────┘
 ```
+
+**Key Design Decisions:**
+- **Router** — Haiku decides execution pattern (simple vs complex) *before* expensive LLM calls. If circuit breaker open, returns immediately.
+- **Dual model strategy** — Haiku for routing and FUNCTION_CALL queries; Sonnet for ReAct loops (complex multi-step reasoning).
+- **Cost engineering** — Prompt caching reduces token cost ~90% after first call. Synthesis grounding prevents hallucination. Tool batching parallelizes independent calls.
+
+**Tool Inventory:**
+- `query_knowledge` — RAG pipeline (pgvector + Cohere rerank + gpt-4o-mini)
+- `query_analytics` — SQL SELECT via ClickHouse
+- `chart` — Chart.js visualization + S3 upload
+- `email` — SMTP via nodemailer
+- `web_search` — Tavily API
+- `forecast_revenue` — Linear trend forecasting
 
 ---
 
-## Quick Start
+## Interfaces
 
-```bash
-# Infrastructure
-docker-compose up -d
-npm run init-db && npm run seed
-
-# Start ForecastAgent (required for A2A)
-cd forecast-agent && npm run dev
-
-# Run BiAgent
-npm start "What's our revenue this month?"
-npm run interactive
-npm run bot
-npm run voice
-
-# Observability
-npm run anomaly                          # Manual anomaly check
-docker-compose up -d anomaly-cron        # Daily cron container
-```
+- **CLI** — single query
+- **Interactive CLI** — conversational with memory
+- **Telegram Bot** — text + voice messages
+- **Alfred** — wake-word voice assistant (Raspberry Pi). Queries prefixed with `[VOICE_INTERFACE]` trigger one-sentence responses; charts display on 7" touchscreen
 
 ---
 
-**Built by:** Liran Mazor · **Purpose:** Agentic AI engineering interviews
+**Built by:** Liran Mazor

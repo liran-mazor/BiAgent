@@ -20,7 +20,7 @@
     "dev": "tsx biagent/interfaces/interactive.ts",
     "bot": "tsx biagent/interfaces/telegramBot.ts",
     "voice": "tsx biagent/interfaces/alfred.ts",
-    "voice:generate": "npx tsx biagent/alfred/generateVoices.ts",
+    "voice:generate": "npx tsx biagent/interfaces/alfred/generateVoices.ts",
     "knowledge": "tsx app/knowledge/src/index.ts",
     "ingest": "tsx app/knowledge/src/scripts/ingest.ts",
     "svc:orders": "tsx app/orders/src/index.ts",

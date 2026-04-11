@@ -101,7 +101,7 @@ Both Anthropic and OpenAI clients are wrapped with LangSmith (`wrapSDK`, `wrapOp
 | `biagent/services/summarizer.ts` | Structured history summarization + selective injection |
 | `biagent/utils/circuitBreaker.ts` | opossum circuit breaker registry (A2A only) |
 | `biagent/utils/validateEnv.ts` | Required env var validation — exits on startup if missing |
-| `biagent/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
+| `biagent/interfaces/alfred/faceService.ts` | WebSocket server (port 3006) + `sendChart()` to RPi face |
 | `app/analytics/src/index.ts` | Analytics A2A agent — port 3002, HTTP + Kafka consumers |
 | `app/analytics/src/app.ts` | Analytics Agent Card + `/tasks` handler (query_analytics) |
 | `app/knowledge/docs/` | RAG knowledge base — 9 markdown docs (ingest reads from here) |
@@ -129,7 +129,7 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 **Chart display:** After each query, `agent.getLastChartUrl()` is checked. If a chart was generated, `faceService.sendChart(url)` pushes it via WebSocket to `face.html` as a fullscreen overlay — sent *before* `play()` so it appears as Alfred starts speaking. `agent.clearLastChartUrl()` prevents stale charts across queries.
 
 **Key details:**
-- Wake word model: `biagent/alfred/audio/alfred.ppn` (custom-trained Picovoice)
+- Wake word model: `biagent/interfaces/alfred/audio/alfred.ppn` (custom-trained Picovoice)
 - Pre-generated audio: `confirmation.mp3` ("All ears"), `ack.mp3` ("On it")
 - Cancel: saying "stop" after wake word → `continue` back to listening loop
 - Voice: `en-GB-Neural2-B` (British male, Google Cloud TTS)
@@ -141,7 +141,7 @@ Wake-word-activated assistant deployed on Raspberry Pi 4 with 7" touchscreen.
 - `biagent/interfaces/alfred.ts` — Alfred wake word loop + chart display
 
 ### Pitch Presentation
-`pitch/biagent-presentation.html` — standalone 3-slide reveal-style HTML. No build step; open directly in a browser.
+`biagent/pitch/biagent-presentation.html` — standalone 3-slide reveal-style HTML. No build step; open directly in a browser.
 
 **Navigation:** Enter / Space / ArrowRight advance steps within a slide. Click also advances.
 
